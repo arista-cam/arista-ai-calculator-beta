@@ -351,8 +351,10 @@
     min-width: 0;
   }
   .diagram-col {
-    width: 340px;
+    width: 200px;
     flex-shrink: 0;
+    position: sticky;
+    top: 20px;
   }
   .diagram-col:empty { display: none; }
 
@@ -563,11 +565,13 @@
 
   /* ── Responsive ── */
   @media (max-width: 1200px) {
-    .diagram-col { width: 280px; }
+    .diagram-col { width: 180px; }
   }
   @media (max-width: 1000px) {
     .results-layout { flex-direction: column; }
-    .diagram-col { width: 100%; }
+    .diagram-col { width: 100%; position: static; }
+    .results-action-bar { flex-direction: row; flex-wrap: wrap; }
+    .results-print-btn { width: auto; flex: 1; min-width: 140px; justify-content: center; }
   }
   @media (max-width: 700px) {
     :root { --sidebar-w: 300px; }
@@ -597,13 +601,24 @@
 
   .print-header { display: none; }
   .print-config { display: none; }
-  .results-print-btn {
-    margin-left: auto; background: none; border: 1px solid var(--border); border-radius: 6px;
-    padding: 6px 14px; font-size: 12px; font-weight: 500; cursor: pointer; color: var(--text2);
-    display: inline-flex; align-items: center; gap: 5px; transition: all 0.15s;
+  .results-action-bar {
+    display: flex; flex-direction: column; gap: 10px;
   }
-  .results-print-btn:hover { background: var(--bg3); color: var(--text1); }
-  .results-print-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+  .results-action-bar .action-heading {
+    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--text3); margin-bottom: 2px;
+  }
+  .results-print-btn {
+    background: var(--primary); border: none; border-radius: 8px;
+    padding: 12px 16px; font-size: 13px; font-weight: 600; cursor: pointer; color: #fff;
+    display: flex; align-items: center; gap: 8px; transition: all 0.15s; width: 100%;
+  }
+  .results-print-btn:hover { background: var(--primary-hover); }
+  .results-print-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; flex-shrink: 0; }
+  .results-print-btn.secondary {
+    background: var(--bg2); color: var(--text1); border: 1px solid var(--border);
+  }
+  .results-print-btn.secondary:hover { background: var(--bg3); }
   .print-footer { display: none; }
   @media print {
     @page { margin: 16mm 14mm 20mm 14mm; size: A4; }
@@ -612,7 +627,7 @@
     :root { --text1: #1a1a1a; --text2: #333; --text3: #555; --bg: #fff; --bg2: #f5f5f5; --bg3: #eee; --border: #ccc; --border2: #888; --primary: #1a1a1a; }
 
     .topbar, .sidebar, .topo-overlay, .changelog-overlay, .diagram-col { display: none !important; }
-    .view-topo-btn, .results-print-btn, .optic-toggle, .power-toggle, .scale-toggle-btn { display: none !important; }
+    .view-topo-btn, .results-print-btn, .results-action-bar, .optic-toggle, .power-toggle, .scale-toggle-btn { display: none !important; }
     .empty-state, .info-tip { display: none !important; }
     .main-content { position: static; left: 0; padding: 0; overflow: visible; }
     .results-layout { display: block; }
@@ -776,7 +791,7 @@
 <div class="topbar">
   <div class="topbar-left">
     <div class="topbar-logo"><svg viewBox="0 0 1115 175" xmlns="http://www.w3.org/2000/svg"><g fill="currentColor"><path d="M391.027,103.426c36.994,0,55.491-25.688,55.491-51.378c0-25.688-18.498-50.353-57.546-50.353c-28.773-1.029-134.617-1.029-134.617-1.029v173.668h32.879V28.413c25.691,0,90.43,0,103.79,0c18.496,0,27.745,6.163,27.745,23.635c0,14.385-9.247,22.606-26.718,22.606h-86.315l102.761,98.648h40.078l-73.991-71.932C381.78,103.426,390,103.426,391.027,103.426z"/><rect x="480.429" y="0.669" width="31.856" height="173.665"/><polygon points="916.137,27.387 916.137,0.669 848.313,0.669 816.457,0.669 759.938,0.669 741.441,27.387 816.457,27.387 816.457,174.334 848.313,174.334 848.313,27.387"/><path d="M678.756,72.6c-16.441,0-57.543,0-81.182,0c-16.438,0-25.689-7.192-25.689-21.58c0-16.44,11.305-23.633,25.689-23.633c22.609,0,110.98,0,110.98,0l14.387-26.718c0,0-107.898,0-126.395,0c-28.775,0-52.407,21.577-52.407,51.382c0,26.715,22.608,48.294,53.434,48.294c17.473,0,69.877,0,81.182,0c18.5,0,28.775,8.224,28.775,23.637c0,13.357-11.305,22.608-28.775,22.608H566.748l-16.44,27.744c0,0,98.649,0,132.558,0c33.912,0,52.406-24.658,52.406-52.404C735.275,96.233,713.695,72.6,678.756,72.6z"/><path d="M104.325,11.972C97.133,23.272,1.564,174.334,1.564,174.334h33.91l31.858-51.381h67.822l17.47-27.746H84.8l36.993-59.602l86.321,137.697h33.911c0,0-94.542-149.001-102.765-162.359C130.013-2.413,113.574-1.387,104.325,11.972z"/><path d="M1079.523,174.334h33.912c0,0-94.539-149.003-102.764-162.362c-9.244-15.415-25.689-14.385-34.938-1.028c-7.195,11.301-102.762,162.359-102.762,162.359h33.91l31.855-51.378h68.852l17.467-27.746h-67.82l36.996-59.603L1079.523,174.334z"/></g></svg></div>
-    <h1>AI Network Calculator <span style="font-weight:400;font-size:14px;opacity:0.6">v1.8.0</span></h1>
+    <h1>AI Network Calculator <span style="font-weight:400;font-size:14px;opacity:0.6">v1.9.0</span></h1>
   </div>
   <div class="topbar-right">
     <a href="#" onclick="event.preventDefault();document.getElementById('changelog-modal').classList.add('open')" title="What's new" style="color:var(--text3);margin-right:12px;display:inline-flex;align-items:center;gap:5px;font-size:13px;text-decoration:none;opacity:0.7;transition:opacity .2s" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
@@ -1222,6 +1237,13 @@
       <button style="background:none;border:none;cursor:pointer;color:var(--text3);padding:4px" onclick="document.getElementById('changelog-modal').classList.remove('open')"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="changelog-body">
+      <h3>v1.9.0 — August 2025</h3>
+      <ul>
+        <li><strong>Slide export redesign</strong> — Arista-branded slide output with blue title bar, rounded boxes, thicker connection lines, Arista logo in footer, and Helvetica Neue font throughout for a professional deck-ready look</li>
+        <li><strong>Larger slide text</strong> — all labels, BOM headings, switch names, port badges, and node names scaled up for readability when projected</li>
+        <li><strong>Fabric tier in simple mode</strong> — tier selector (Single / Two-tier / Three-tier / DES) now visible in Simple mode so users can override the GPU default without switching to Advanced</li>
+        <li><strong>Action panel</strong> — replaced inline Logical Data Path diagram with a dedicated action sidebar (Download Slide, Copy Slide, Print to PDF, Topology) using solid Arista-blue buttons</li>
+      </ul>
       <h3>v1.8.0 — August 2025</h3>
       <ul>
         <li><strong>NVIDIA Rubin GPU support</strong> — added Vera Rubin NVL72 (72 GPUs, 2× CX9 800G per GPU), DGX Rubin NVL8, and HGX Rubin NVL8 (8 GPUs, 1× CX9 800G per GPU) to the GPU model selector</li>
@@ -1670,15 +1692,13 @@ function setMode(mode) {
   currentMode = mode;
   document.getElementById('mode-simple').className = 'optic-toggle-btn' + (mode === 'simple' ? ' active' : '');
   document.getElementById('mode-advanced').className = 'optic-toggle-btn' + (mode === 'advanced' ? ' active' : '');
-  const hiddenSections = ['section-tier', 'section-optics'];
+  const hiddenSections = ['section-optics'];
   for (const id of hiddenSections) {
     const el = document.getElementById(id);
     if (el) el.style.display = mode === 'simple' ? 'none' : '';
   }
   const switchAdv = document.getElementById('switch-advanced-fields');
   if (switchAdv) switchAdv.style.display = mode === 'simple' ? 'none' : '';
-  const beLabel = document.getElementById('be-fabric-label');
-  if (beLabel) beLabel.style.display = mode === 'simple' ? 'none' : '';
   const gpu = GPU_MODELS.find(g => g.id === document.getElementById('gpu-model').value);
   updateAutoSummary(gpu && gpu.id !== 'custom' ? gpu : null);
   updateSectionSummaries();
@@ -1693,9 +1713,7 @@ function updateAutoSummary(gpu) {
     box.style.display = 'none';
     return;
   }
-  const tierNames = { 1: 'Single-tier', 2: 'Two-tier leaf-spine', 3: 'Three-tier', 4: 'DES' };
   const items = [];
-  if (gpu.defaultTier) items.push(['Fabric', tierNames[gpu.defaultTier] || gpu.defaultTier + '-tier']);
   if (gpu.defaultPlanes) items.push(['Planes', gpu.defaultPlanes]);
   if (gpu.defaultRails) items.push(['Rails', gpu.defaultRails]);
   if (gpu.defaultNic) {
@@ -2097,7 +2115,7 @@ function updateTierHint() {
   autoSelectPlatforms();
 }
 
-const APP_VERSION = '1.8.0';
+const APP_VERSION = '1.9.0';
 
 window.addEventListener('DOMContentLoaded', () => {
   populateDropdowns();
@@ -3986,7 +4004,6 @@ function calculate() {
   out += '<button class="results-tab-btn' + (activeResultsTab === 'summary' ? ' active' : '') + '" data-tab="summary" onclick="switchResultsTab(\'summary\')">Summary</button>';
   out += '<button class="results-tab-btn' + (activeResultsTab === 'fabric' ? ' active' : '') + '" data-tab="fabric" onclick="switchResultsTab(\'fabric\')">Fabric</button>';
   out += '<button class="results-tab-btn' + (activeResultsTab === 'optics' ? ' active' : '') + '" data-tab="optics" onclick="switchResultsTab(\'optics\')">Optics &amp; Power</button>';
-  out += '<button class="results-print-btn" onclick="window.print()" title="Print to PDF"><svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Print</button>';
   out += '</div>';
   out += '<div class="results-tab-panel' + (activeResultsTab === 'summary' ? ' active' : '') + '" data-tab="summary">' + summaryContent + '</div>';
   out += '<div class="results-tab-panel' + (activeResultsTab === 'fabric' ? ' active' : '') + '" data-tab="fabric">' + fabricContent + '</div>';
@@ -3999,17 +4016,22 @@ function calculate() {
   } else {
     out += '<div class="results-tab-panel' + (activeResultsTab === 'optics' ? ' active' : '') + '" data-tab="optics">' + optHtml + powerHtml + '</div>';
   }
-
   el.dataset.opticMode = 'conventional';
   el.dataset.powerMode = 'eightyPct';
   el.innerHTML = out;
   const diagPanel = document.getElementById('diagram-panel');
   diagPanel.dataset.opticMode = 'conventional';
-  diagPanel.innerHTML = diagramHtml;
+  let actionHtml = '<div class="results-action-bar">';
+  actionHtml += '<div class="action-heading">Export</div>';
+  actionHtml += '<button class="results-print-btn" onclick="exportSlidePNG()" title="Download slide image"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download Slide</button>';
+  actionHtml += '<button class="results-print-btn" onclick="copySlidePNG()" title="Copy slide to clipboard"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>Copy Slide</button>';
+  actionHtml += '<button class="results-print-btn" onclick="window.print()" title="Print to PDF"><svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Print to PDF</button>';
   if (lastTopoConfig) {
-    document.getElementById('diagram-panel').innerHTML +=
-      '<div style="text-align:center"><button class="view-topo-btn" onclick="openTopoModal()">View Full Topology</button></div>';
+    actionHtml += '<div class="action-heading" style="margin-top:8px">View</div>';
+    actionHtml += '<button class="results-print-btn" onclick="openTopoModal()" title="View topology"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Topology</button>';
   }
+  actionHtml += '</div>';
+  diagPanel.innerHTML = actionHtml;
   const tierNames = { 1: 'Single-tier', 2: 'Two-tier Clos', 3: 'Three-tier Clos', 4: 'DES' };
   const pcParts = [];
   if (selGpu && selGpu.id !== 'custom') pcParts.push('<strong>GPU:</strong> ' + esc(selGpu.name));
@@ -4025,6 +4047,18 @@ function calculate() {
   if (targetGpusPrint > gpus) pcParts.push('<strong>Target scale:</strong> ' + fmtN(targetGpusPrint) + ' GPUs');
   document.getElementById('print-config').innerHTML = pcParts.join(' &nbsp;&middot;&nbsp; ');
   document.getElementById('print-footer').textContent = 'Generated ' + new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) + ' — Arista Networks AI Network Calculator v' + APP_VERSION;
+
+  window.lastCalcResults = {
+    gpu: selGpu, gpus, hosts, gpusPerNode, linksPerGpu,
+    tierNum, planes, spineSpeed,
+    hostSpeed: hostSpeedPerPlane,
+    leafPlatform, spinePlatform,
+    leafPerPlane: lastTopoConfig?.tiers?.find(t => t.id === 'leaf')?.perPlane || 0,
+    spinePerPlane: lastTopoConfig?.tiers?.find(t => t.id === 'spine')?.perPlane || 0,
+    totalLeaf, totalSpine, totalSwitches: totalLeaf + totalSpine,
+    opticCounts: { ...opticCounts },
+  };
+
   updateSectionSummaries();
 }
 
@@ -6008,6 +6042,335 @@ function exportTopoPNG() {
       a.download = 'topology.png';
       a.click();
       URL.revokeObjectURL(a.href);
+    }, 'image/png');
+  };
+  img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(xml)));
+}
+
+function buildSlideSVG() {
+  const r = window.lastCalcResults;
+  if (!r) return null;
+
+  const W = 1280, H = 720;
+  const ARISTA_BLUE = '#0065A3';
+  const ARISTA_DARK = '#003D66';
+  const DARK = '#1A2332';
+  const MID = '#4A5568';
+  const LIGHT = '#718096';
+  const FONT = "'Helvetica Neue','Helvetica','Arial',sans-serif";
+  const planeClr = ['#E6F1F8','#EDF7ED','#FFF7ED','#F0E6F6'];
+  const planeBrd = ['#0065A3','#5AAD3A','#D97706','#7C3AED'];
+  const planeLbl = ['#003D66','#3D7A28','#92400E','#5B21B6'];
+
+  const tierNames = { 1: 'Single-Tier Network', 2: 'Two-Tier Network', 3: 'Three-Tier Network', 4: 'DES Network' };
+  const gpuLabel = (r.gpu && r.gpu.id !== 'custom') ? r.gpu.name.replace('NVIDIA ', '') : 'Custom';
+  const nodeWord = r.gpusPerNode >= 36 ? 'racks' : 'nodes';
+  const titleStr = fmtN(r.hosts) + ' ' + gpuLabel + ' ' + nodeWord + ' (' + fmtN(r.gpus) + ' GPU) - '
+    + tierNames[r.tierNum] + ' - ' + r.planes + ' Plane' + (r.planes > 1 ? 's' : '');
+
+  const isChassis = r.spinePlatform && r.spinePlatform.type === 'chassis';
+  const spineName = r.spinePlatform ? r.spinePlatform.name : 'Switch';
+  const leafName = r.leafPlatform ? r.leafPlatform.name : 'Switch';
+  const chassisShort = isChassis ? '780' + r.spinePlatform.slots + 'R4' : spineName;
+  const isTwoTier = r.tierNum >= 2 && r.tierNum <= 3;
+  const spPerPlane = r.spinePerPlane || 1;
+
+  function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  let svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '" font-family="' + FONT + '">';
+  svg += '<rect x="0" y="0" width="' + W + '" height="' + H + '" fill="#F7FAFC"/>';
+
+  // === TITLE BAR ===
+  svg += '<rect x="20" y="12" width="1240" height="56" rx="8" fill="' + ARISTA_BLUE + '"/>';
+  svg += '<text x="38" y="48" font-size="24" font-weight="bold" fill="#FFFFFF">' + esc(titleStr) + '</text>';
+
+  // === BOM (left panel) ===
+  svg += '<rect x="20" y="78" width="310" height="594" rx="8" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>';
+  svg += '<text x="175" y="100" font-size="12" font-weight="bold" fill="' + ARISTA_BLUE + '" text-anchor="middle" letter-spacing="1.5">BILL OF MATERIALS</text>';
+  svg += '<line x1="40" y1="110" x2="310" y2="110" stroke="' + ARISTA_BLUE + '" stroke-width="0.5" opacity="0.3"/>';
+  let by = 138;
+  function bomHead(t) {
+    svg += '<text x="40" y="' + by + '" font-size="17" font-weight="bold" fill="' + ARISTA_BLUE + '">' + esc(t) + '</text>';
+    by += 30;
+  }
+  function bomText(t) {
+    svg += '<text x="40" y="' + by + '" font-size="14" fill="' + MID + '">' + esc(t) + '</text>';
+    by += 24;
+  }
+  function bomGap() { by += 20; }
+
+  if (r.tierNum === 1) {
+    bomHead('Spline');
+    if (isChassis) {
+      const slots = r.spinePlatform.slots || 8;
+      bomText(r.planes + 'x ' + chassisShort + ' (' + slots + ' line cards each)');
+      bomText((r.planes * slots) + 'x 7800R4C-36PE-LC total');
+    } else {
+      bomText((r.totalSpine || r.planes) + 'x ' + spineName);
+    }
+  } else {
+    bomHead('Spine');
+    bomText(r.totalSpine + 'x ' + spineName);
+    if (isChassis) {
+      const slots = r.spinePlatform.slots || 8;
+      bomText((r.totalSpine * slots) + 'x 7800R4C-36PE-LC total');
+    }
+    bomGap();
+    bomHead('Leaf');
+    bomText(r.totalLeaf + 'x ' + leafName);
+  }
+
+  bomGap();
+  bomHead('Optics — Fabric');
+  if (r.tierNum === 1) {
+    if (isChassis) {
+      bomText('No optics required');
+      bomText('Internal fabric ' + chassisShort + '-FM');
+    } else {
+      bomText('No optics required');
+    }
+  } else {
+    bomText(fmtN(r.opticCounts.spine) + 'x ' + opticType(r.spineSpeed));
+  }
+
+  bomGap();
+  bomHead('Optics — Host Access');
+  bomText(fmtN(r.opticCounts.hostSwitch + r.opticCounts.hostEnd) + 'x ' + opticType(r.hostSpeed));
+
+  bomGap();
+  bomHead('SW, License, Services');
+  bomText('Lic(E+Z)+Support+CV');
+
+  if (r.tierNum === 1 && isChassis) {
+    bomGap();
+    bomHead('PAYG:');
+    const payNodes = Math.floor(2 / (r.spinePlatform.slots || 8) * r.hosts);
+    bomText('Initial 2 x LC per ' + chassisShort);
+    bomText('supports ' + payNodes + ' ' + gpuLabel + ' ' + nodeWord);
+    bomText('(' + fmtN(payNodes * r.gpusPerNode) + ' GPU)');
+  }
+
+  // === TOPOLOGY DIAGRAM (right panel) ===
+  const diagCX = 840;
+
+  // Port usage banner
+  const usedPerPlane = r.tierNum === 1
+    ? Math.ceil(r.gpus * r.linksPerGpu / r.planes)
+    : spPerPlane * (r.leafPerPlane || 1);
+  const bannerSpd = r.tierNum === 1 ? r.hostSpeed : r.spineSpeed;
+  const bannerTxt = fmtN(usedPerPlane) + 'x ' + speedLabel(bannerSpd) + ' per plane used';
+  const bannerW = 260;
+  svg += '<rect x="' + (diagCX - bannerW/2) + '" y="84" width="' + bannerW + '" height="26" rx="13" fill="' + ARISTA_BLUE + '" opacity="0.1"/>';
+  svg += '<text x="' + diagCX + '" y="102" font-size="11" font-weight="600" fill="' + ARISTA_DARK + '" text-anchor="middle">' + esc(bannerTxt) + '</text>';
+
+  // --- Spine tier ---
+  const spBoxW = 190;
+  const spBoxH = isChassis ? 120 : 80;
+  const spY = 130;
+  const spGap = 55;
+  const spTotalW = r.planes * spBoxW + (r.planes - 1) * spGap;
+  const spStartX = diagCX - spTotalW / 2;
+
+  for (let p = 0; p < r.planes; p++) {
+    const bx = spStartX + p * (spBoxW + spGap);
+    const pc = planeClr[p % 4];
+    const pb = planeBrd[p % 4];
+    const pl = planeLbl[p % 4];
+
+    svg += '<text x="' + (bx + spBoxW/2) + '" y="' + (spY - 5) + '" font-size="10" font-weight="bold" fill="' + pl + '" text-anchor="middle">Plane ' + (p+1) + '</text>';
+    svg += '<rect x="' + bx + '" y="' + spY + '" width="' + spBoxW + '" height="' + spBoxH + '" rx="8" fill="' + pc + '" stroke="' + pb + '" stroke-width="1.5"/>';
+
+    const displayName = isChassis ? chassisShort : spineName;
+    const cntLbl = spPerPlane > 1 ? spPerPlane + '× ' : '';
+    svg += '<text x="' + (bx + spBoxW/2) + '" y="' + (spY + 20) + '" font-size="14" font-weight="bold" fill="' + DARK + '" text-anchor="middle">' + esc(cntLbl + displayName) + '</text>';
+
+    const numBars = isChassis ? Math.min(r.spinePlatform.slots || 8, 8) : 3;
+    const barH = 6;
+    const barGapV = 3;
+    const barsY = spY + 28;
+    for (let s = 0; s < numBars; s++) {
+      svg += '<rect x="' + (bx + 20) + '" y="' + (barsY + s * (barH + barGapV)) + '" width="' + (spBoxW - 40) + '" height="' + barH + '" rx="2" fill="' + pb + '" opacity="0.4"/>';
+    }
+
+    if (isChassis) {
+      const xPad = 28;
+      const xTop = barsY;
+      const xBot = barsY + (numBars - 1) * (barH + barGapV) + barH;
+      svg += '<line x1="' + (bx + xPad) + '" y1="' + xTop + '" x2="' + (bx + spBoxW - xPad) + '" y2="' + xBot + '" stroke="' + pb + '" stroke-width="1" opacity="0.4"/>';
+      svg += '<line x1="' + (bx + spBoxW - xPad) + '" y1="' + xTop + '" x2="' + (bx + xPad) + '" y2="' + xBot + '" stroke="' + pb + '" stroke-width="1" opacity="0.4"/>';
+    }
+
+    const badgePorts = isChassis ? r.spinePlatform.radix : usedPerPlane;
+    const badgeSpd = isChassis ? (r.spinePlatform.portSpeed || 800) : bannerSpd;
+    const badgeTxt = fmtN(badgePorts) + 'x' + speedLabel(badgeSpd);
+    svg += '<rect x="' + (bx + 12) + '" y="' + (spY + spBoxH - 26) + '" width="' + (spBoxW - 24) + '" height="20" rx="10" fill="' + pb + '"/>';
+    svg += '<text x="' + (bx + spBoxW/2) + '" y="' + (spY + spBoxH - 12) + '" font-size="11" font-weight="bold" fill="#FFFFFF" text-anchor="middle">' + esc(badgeTxt) + '</text>';
+  }
+
+  // --- Leaf tier (two-tier+) ---
+  const leafBoxW = 110;
+  const leafBoxH = 36;
+  const numLeafShow = 4;
+  const lfGap = 18;
+  const leafTotalW = numLeafShow * leafBoxW + (numLeafShow - 1) * lfGap;
+  const leafStartX = diagCX - leafTotalW / 2;
+  let leafY = 0;
+
+  if (isTwoTier) {
+    leafY = spY + spBoxH + 90;
+
+    for (let i = 0; i < numLeafShow; i++) {
+      const lx = leafStartX + i * (leafBoxW + lfGap);
+      svg += '<rect x="' + lx + '" y="' + leafY + '" width="' + leafBoxW + '" height="' + leafBoxH + '" rx="6" fill="#FFFFFF" stroke="' + ARISTA_BLUE + '" stroke-width="1.5"/>';
+      svg += '<text x="' + (lx + leafBoxW/2) + '" y="' + (leafY + 23) + '" font-size="12" font-weight="bold" fill="' + ARISTA_DARK + '" text-anchor="middle">' + esc(leafName) + '</text>';
+    }
+
+    const spineLinkBundle = lastTopoConfig?.links?.[0]?.bundle || 1;
+    const spLinkLbl = spineLinkBundle + 'x ' + speedLabel(r.spineSpeed);
+    for (let p = 0; p < r.planes; p++) {
+      const scx = spStartX + p * (spBoxW + spGap) + spBoxW / 2;
+      for (let i = 0; i < numLeafShow; i++) {
+        const lcx = leafStartX + i * (leafBoxW + lfGap) + leafBoxW / 2;
+        svg += '<line x1="' + scx + '" y1="' + (spY + spBoxH) + '" x2="' + lcx + '" y2="' + leafY + '" stroke="' + ARISTA_BLUE + '" stroke-width="1.5" opacity="0.35"/>';
+      }
+    }
+
+    const slMidY = spY + spBoxH + (leafY - spY - spBoxH) / 2 + 4;
+    svg += '<rect x="' + (diagCX + leafTotalW/2 + 8) + '" y="' + (slMidY - 12) + '" width="' + (spLinkLbl.length * 7 + 16) + '" height="20" rx="10" fill="' + ARISTA_BLUE + '" opacity="0.08"/>';
+    svg += '<text x="' + (diagCX + leafTotalW/2 + 16 + spLinkLbl.length * 3.5) + '" y="' + (slMidY + 1) + '" font-size="11" font-weight="600" fill="' + ARISTA_DARK + '" text-anchor="middle">' + esc(spLinkLbl) + '</text>';
+    svg += '<text x="' + diagCX + '" y="' + (leafY + leafBoxH + 14) + '" font-size="9" fill="' + LIGHT + '" text-anchor="middle">' + fmtN(r.leafPerPlane) + ' leaves / plane</text>';
+  }
+
+  // --- GPU/compute nodes ---
+  const nodeBoxW = 140;
+  const nodeBoxH = 55;
+  const ndGap = 28;
+  const numNodesShow = 4;
+  const nodeTotalW = numNodesShow * nodeBoxW + (numNodesShow - 1) * ndGap;
+  const nodeStartX = diagCX - nodeTotalW / 2;
+  const nodeY = isTwoTier ? leafY + leafBoxH + 80 : spY + spBoxH + 130;
+
+  const hostLinkLbl = r.linksPerGpu + 'x ' + speedLabel(r.hostSpeed);
+
+  for (let i = 0; i < numNodesShow; i++) {
+    const ncx = nodeStartX + i * (nodeBoxW + ndGap) + nodeBoxW / 2;
+    if (isTwoTier) {
+      const lcx = leafStartX + i * (leafBoxW + lfGap) + leafBoxW / 2;
+      svg += '<line x1="' + lcx + '" y1="' + (leafY + leafBoxH) + '" x2="' + ncx + '" y2="' + nodeY + '" stroke="' + ARISTA_BLUE + '" stroke-width="1.5" opacity="0.35"/>';
+    } else {
+      for (let p = 0; p < r.planes; p++) {
+        const scx = spStartX + p * (spBoxW + spGap) + spBoxW / 2;
+        svg += '<line x1="' + scx + '" y1="' + (spY + spBoxH) + '" x2="' + ncx + '" y2="' + nodeY + '" stroke="' + ARISTA_BLUE + '" stroke-width="1.5" opacity="0.35"/>';
+      }
+    }
+  }
+
+  const hlSrcY = isTwoTier ? leafY + leafBoxH : spY + spBoxH;
+  const hlMidY = hlSrcY + (nodeY - hlSrcY) / 2 + 4;
+  svg += '<rect x="' + (diagCX + nodeTotalW/2 + 8) + '" y="' + (hlMidY - 12) + '" width="' + (hostLinkLbl.length * 7 + 16) + '" height="20" rx="10" fill="' + ARISTA_BLUE + '" opacity="0.08"/>';
+  svg += '<text x="' + (diagCX + nodeTotalW/2 + 16 + hostLinkLbl.length * 3.5) + '" y="' + (hlMidY + 1) + '" font-size="11" font-weight="600" fill="' + ARISTA_DARK + '" text-anchor="middle">' + esc(hostLinkLbl) + '</text>';
+
+  if (r.tierNum === 1 && isChassis) {
+    const nicSpd = r.spinePlatform?.portSpeed || r.hostSpeed;
+    svg += '<text x="' + (nodeStartX - 12) + '" y="' + (hlMidY + 28) + '" font-size="10" fill="' + MID + '" text-anchor="end">1x ' + speedLabel(nicSpd) + '</text>';
+  }
+
+  const halfN = Math.ceil(r.hosts / 2);
+  const nodeNums = [1, halfN, halfN + 1, r.hosts];
+  const gpuCells = Math.min(r.gpusPerNode, 8);
+  const cellPad = 4;
+  const cellW = (nodeBoxW - cellPad * 2) / gpuCells;
+  const cellH = 30;
+
+  for (let i = 0; i < numNodesShow; i++) {
+    const nx = nodeStartX + i * (nodeBoxW + ndGap);
+
+    svg += '<rect x="' + nx + '" y="' + nodeY + '" width="' + nodeBoxW + '" height="' + nodeBoxH + '" rx="6" fill="#FFFFFF" stroke="#CBD5E0" stroke-width="1.5"/>';
+
+    for (let g = 0; g < gpuCells; g++) {
+      const gx = nx + cellPad + g * cellW + 1;
+      const cFill = g < gpuCells / 2 ? '#E6F1F8' : '#D4E8F7';
+      svg += '<rect x="' + gx + '" y="' + (nodeY + cellPad) + '" width="' + (cellW - 2) + '" height="' + cellH + '" rx="2" fill="' + cFill + '" stroke="' + ARISTA_BLUE + '" stroke-width="0.5" opacity="0.8"/>';
+      svg += '<text x="' + (gx + (cellW - 2)/2) + '" y="' + (nodeY + cellPad + cellH/2 + 4) + '" font-size="7" font-weight="bold" fill="' + ARISTA_DARK + '" text-anchor="middle">G' + g + '</text>';
+    }
+
+    svg += '<text x="' + (nx + nodeBoxW/2) + '" y="' + (nodeY + nodeBoxH + 16) + '" font-size="11" font-weight="bold" fill="' + DARK + '" text-anchor="middle">' + esc(gpuLabel + ' #' + nodeNums[i]) + '</text>';
+
+    if (i === 0 || i === 2) {
+      const ellX = nx + nodeBoxW + ndGap / 2;
+      svg += '<text x="' + ellX + '" y="' + (nodeY + nodeBoxH/2 + 3) + '" font-size="16" fill="' + ARISTA_BLUE + '" opacity="0.4" text-anchor="middle">···</text>';
+    }
+  }
+
+  // === FOOTER ===
+  svg += '<rect x="20" y="680" width="1240" height="30" rx="6" fill="' + ARISTA_BLUE + '" opacity="0.06"/>';
+  svg += '<g transform="translate(30,684) scale(0.1)">'
+    + '<g fill="' + ARISTA_BLUE + '">'
+    + '<path d="M391.027,103.426c36.994,0,55.491-25.688,55.491-51.378c0-25.688-18.498-50.353-57.546-50.353c-28.773-1.029-134.617-1.029-134.617-1.029v173.668h32.879V28.413c25.691,0,90.43,0,103.79,0c18.496,0,27.745,6.163,27.745,23.635c0,14.385-9.247,22.606-26.718,22.606h-86.315l102.761,98.648h40.078l-73.991-71.932C381.78,103.426,390,103.426,391.027,103.426z"/>'
+    + '<rect x="480.429" y="0.669" width="31.856" height="173.665"/>'
+    + '<polygon points="916.137,27.387 916.137,0.669 848.313,0.669 816.457,0.669 759.938,0.669 741.441,27.387 816.457,27.387 816.457,174.334 848.313,174.334 848.313,27.387"/>'
+    + '<path d="M678.756,72.6c-16.441,0-57.543,0-81.182,0c-16.438,0-25.689-7.192-25.689-21.58c0-16.44,11.305-23.633,25.689-23.633c22.609,0,110.98,0,110.98,0l14.387-26.718c0,0-107.898,0-126.395,0c-28.775,0-52.407,21.577-52.407,51.382c0,26.715,22.608,48.294,53.434,48.294c17.473,0,69.877,0,81.182,0c18.5,0,28.775,8.224,28.775,23.637c0,13.357-11.305,22.608-28.775,22.608H566.748l-16.44,27.744c0,0,98.649,0,132.558,0c33.912,0,52.406-24.658,52.406-52.404C735.275,96.233,713.695,72.6,678.756,72.6z"/>'
+    + '<path d="M104.325,11.972C97.133,23.272,1.564,174.334,1.564,174.334h33.91l31.858-51.381h67.822l17.47-27.746H84.8l36.993-59.602l86.321,137.697h33.911c0,0-94.542-149.001-102.765-162.359C130.013-2.413,113.574-1.387,104.325,11.972z"/>'
+    + '<path d="M1079.523,174.334h33.912c0,0-94.539-149.003-102.764-162.362c-9.244-15.415-25.689-14.385-34.938-1.028c-7.195,11.301-102.762,162.359-102.762,162.359h33.91l31.855-51.378h68.852l17.467-27.746h-67.82l36.996-59.603L1079.523,174.334z"/>'
+    + '</g></g>';
+  svg += '<text x="148" y="700" font-size="9" fill="' + LIGHT + '">Copyright © Arista ' + new Date().getFullYear() + '. All rights reserved.</text>';
+  svg += '<text x="640" y="700" font-size="9" fill="' + LIGHT + '" text-anchor="middle">Confidential.</text>';
+  svg += '<text x="1245" y="700" font-size="9" fill="' + LIGHT + '" text-anchor="end">AI Network Calculator v' + APP_VERSION + '</text>';
+
+  svg += '</svg>';
+  return svg;
+}
+
+function exportSlidePNG() {
+  const svgStr = buildSlideSVG();
+  if (!svgStr) { alert('Run a calculation first.'); return; }
+
+  const scale = 2;
+  const W = 1280 * scale;
+  const H = 720 * scale;
+  const xml = svgStr.replace(/width="\d+"/, 'width="' + W + '"').replace(/height="\d+"/, 'height="' + H + '"');
+
+  const img = new Image();
+  img.onload = function() {
+    const canvas = document.createElement('canvas');
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, W, H);
+    canvas.toBlob(function(blob) {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      const r = window.lastCalcResults;
+      const gpuLabel = (r.gpu && r.gpu.id !== 'custom') ? r.gpu.name.replace('NVIDIA ', '').replace(/\s+/g, '-') : 'Custom';
+      a.download = 'AI-Network-' + fmtN(r.gpus) + 'GPU-' + gpuLabel + '.png';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }, 'image/png');
+  };
+  img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(xml)));
+}
+
+function copySlidePNG() {
+  const svgStr = buildSlideSVG();
+  if (!svgStr) { alert('Run a calculation first.'); return; }
+
+  const scale = 2;
+  const W = 1280 * scale;
+  const H = 720 * scale;
+  const xml = svgStr.replace(/width="\d+"/, 'width="' + W + '"').replace(/height="\d+"/, 'height="' + H + '"');
+
+  const img = new Image();
+  img.onload = function() {
+    const canvas = document.createElement('canvas');
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, W, H);
+    canvas.toBlob(function(blob) {
+      navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]).then(function() {
+        const btn = document.querySelector('.results-print-btn[title="Copy slide to clipboard"]');
+        if (btn) { const orig = btn.innerHTML; btn.textContent = 'Copied!'; setTimeout(function() { btn.innerHTML = orig; }, 1500); }
+      }).catch(function() { alert('Copy failed — your browser may not support clipboard image writes.'); });
     }, 'image/png');
   };
   img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(xml)));
