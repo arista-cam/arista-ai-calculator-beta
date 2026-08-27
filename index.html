@@ -1243,6 +1243,10 @@
         <li><strong>Larger slide text</strong> — all labels, BOM headings, switch names, port badges, and node names scaled up for readability when projected</li>
         <li><strong>Fabric tier in simple mode</strong> — tier selector (Single / Two-tier / Three-tier / DES) now visible in Simple mode so users can override the GPU default without switching to Advanced</li>
         <li><strong>Action panel</strong> — replaced inline Logical Data Path diagram with a dedicated action sidebar (Download Slide, Copy Slide, Print to PDF, Topology) using solid Arista-blue buttons</li>
+        <li><strong>B300 NIC default fix</strong> — B300 now defaults to CX8 SuperNIC (800G) with single-NIC breakout across 2 planes (2×400G), matching reference architectures; previously defaulted to CX7 which produced incorrect leaf counts</li>
+        <li><strong>Per-GPU default platforms</strong> — B300 defaults to 7060X6 (800G serdes) and Vera Rubin NVL72 defaults to 7060XE7 (1.6T serdes) to match GPU NIC speeds</li>
+        <li><strong>Rack-alignment fix</strong> — large rack-scale clusters (e.g. VR NVL72 at 96 racks) no longer fail with uplink bundle errors; rack boundary alignment is skipped when it would exceed spine capacity</li>
+        <li><strong>Smallest spine default</strong> — simple mode now selects the smallest spine platform that fits the current demand, only upsizing when scale-out planning is enabled</li>
       </ul>
       <h3>v1.8.0 — August 2025</h3>
       <ul>
@@ -1538,13 +1542,13 @@ const FE_SPINE_PLATFORMS = [
 
 const GPU_MODELS = [
   { id: 'custom',    name: 'Custom',              gpusPerNode: 8,  defaultNic: null,         defaultSpeed: 400, vendor: null },
-  { id: 'rubin72',   name: 'NVIDIA Vera Rubin NVL72', gpusPerNode: 72, defaultNic: 'cx9',   defaultSpeed: 800, defaultLinks: 2, vendor: 'nvidia', defaultPlanes: 2, defaultRails: 4, defaultTier: 2, defaultSpineSpeed: 800, rackScale: true, nicsPerRack: 144 },
+  { id: 'rubin72',   name: 'NVIDIA Vera Rubin NVL72', gpusPerNode: 72, defaultNic: 'cx9',   defaultSpeed: 800, defaultLinks: 2, vendor: 'nvidia', defaultPlanes: 2, defaultRails: 4, defaultTier: 2, defaultSpineSpeed: 800, rackScale: true, nicsPerRack: 144, defaultLeaf: 128, defaultSpine: 128 },
   { id: 'dgx-rubin', name: 'NVIDIA DGX Rubin NVL8',  gpusPerNode: 8,  defaultNic: 'cx9',   defaultSpeed: 800, vendor: 'nvidia', defaultPlanes: 2, defaultRails: 8, defaultTier: 2, defaultSpineSpeed: 800 },
   { id: 'hgx-rubin', name: 'NVIDIA HGX Rubin NVL8',  gpusPerNode: 8,  defaultNic: 'cx9',   defaultSpeed: 800, vendor: 'nvidia', defaultPlanes: 2, defaultRails: 8, defaultTier: 2, defaultSpineSpeed: 800 },
   { id: 'gb300',     name: 'NVIDIA GB300 NVL72',  gpusPerNode: 72, defaultNic: 'cx8',        defaultSpeed: 800, vendor: 'nvidia', defaultPlanes: 2, defaultRails: 4, defaultTier: 2, defaultSpineSpeed: 800, rackScale: true, nicsPerRack: 72 },
   { id: 'gb200',     name: 'NVIDIA GB200 NVL72',  gpusPerNode: 72, defaultNic: 'cx7',        defaultSpeed: 400, vendor: 'nvidia', defaultPlanes: 2, defaultRails: 4, defaultTier: 2, defaultSpineSpeed: 800, rackScale: true, nicsPerRack: 72 },
   { id: 'gb200-36',  name: 'NVIDIA GB200 NVL36',  gpusPerNode: 36, defaultNic: 'cx7',        defaultSpeed: 400, vendor: 'nvidia', defaultPlanes: 2, defaultRails: 4, defaultTier: 2, defaultSpineSpeed: 800 },
-  { id: 'b300',      name: 'NVIDIA B300',         gpusPerNode: 8,  defaultNic: 'cx7',        defaultSpeed: 400, defaultLinks: 2, vendor: 'nvidia', defaultPlanes: 2, defaultRails: 8, defaultTier: 2, defaultSpineSpeed: 800 },
+  { id: 'b300',      name: 'NVIDIA B300',         gpusPerNode: 8,  defaultNic: 'cx8',        defaultSpeed: 800, defaultLinks: 1, vendor: 'nvidia', defaultPlanes: 2, defaultRails: 8, defaultTier: 2, defaultSpineSpeed: 800, defaultLeaf: 64, defaultSpine: 64 },
   { id: 'b200',      name: 'NVIDIA B200',         gpusPerNode: 8,  defaultNic: 'cx7',        defaultSpeed: 400, vendor: 'nvidia', defaultPlanes: 2, defaultRails: 8, defaultTier: 2, defaultSpineSpeed: 800 },
   { id: 'h200',      name: 'NVIDIA H200',         gpusPerNode: 8,  defaultNic: 'cx7',        defaultSpeed: 400, vendor: 'nvidia', defaultPlanes: 1, defaultRails: 8, defaultTier: 2, defaultSpineSpeed: 800 },
   { id: 'h100',      name: 'NVIDIA H100',         gpusPerNode: 8,  defaultNic: 'cx7',        defaultSpeed: 400, vendor: 'nvidia', defaultPlanes: 1, defaultRails: 8, defaultTier: 2, defaultSpineSpeed: 800 },
@@ -1671,9 +1675,14 @@ function onGpuChange() {
   if (gpu.defaultSpineSpeed) document.getElementById('spine-speed').value = String(gpu.defaultSpineSpeed);
 
   syncFromNodes();
-  syncBreakout();
   filterPlatformDropdowns();
+  if (gpu.defaultLeaf) document.getElementById('leaf-radix').value = String(gpu.defaultLeaf);
+  if (gpu.defaultSpine) document.getElementById('spine-radix').value = String(gpu.defaultSpine);
+  syncBreakout();
   autoSelectPlatforms();
+  if (gpu.defaultLeaf) document.getElementById('leaf-radix').value = String(gpu.defaultLeaf);
+  if (gpu.defaultSpine) document.getElementById('spine-radix').value = String(gpu.defaultSpine);
+  syncBreakout();
   updateTierHint();
   updateAutoSummary(gpu);
 }
@@ -1998,8 +2007,12 @@ function autoSelect2Tier(linksPerPlane, breakout, targetLPP) {
         if (spinePerPlane <= effUp && effUp % spinePerPlane === 0) {
           const ports = leafPerPlane * lp.radix + spinePerPlane * sp.radix;
           const switches = leafPerPlane + spinePerPlane;
-          if (!best || ports < best.ports || (ports === best.ports && switches < best.switches)) {
-            best = { leaf: lp.radix, spine: sp.radix, ports, switches };
+          const preferSmall = targetLPP <= linksPerPlane;
+          const better = preferSmall
+            ? (!best || sp.radix < best.spineRadix || (sp.radix === best.spineRadix && ports < best.ports))
+            : (!best || ports < best.ports || (ports === best.ports && switches < best.switches));
+          if (better) {
+            best = { leaf: lp.radix, spine: sp.radix, ports, switches, spineRadix: sp.radix };
           }
         }
       }
@@ -2048,8 +2061,12 @@ function autoSelect3Tier(linksPerPlane, breakout, targetLPP) {
         const spinePerPlane = Math.ceil(spinePortsNeeded / effSpR);
         const ports = (leaf2PerPlane + leaf1PerPlane) * lp.radix + spinePerPlane * sp.radix;
         const switches = leaf2PerPlane + leaf1PerPlane + spinePerPlane;
-        if (!best || ports < best.ports || (ports === best.ports && switches < best.switches)) {
-          best = { leaf: lp.radix, spine: sp.radix, ports, switches };
+        const preferSmall = targetLPP <= linksPerPlane;
+        const better = preferSmall
+          ? (!best || sp.radix < best.spineRadix || (sp.radix === best.spineRadix && ports < best.ports))
+          : (!best || ports < best.ports || (ports === best.ports && switches < best.switches));
+        if (better) {
+          best = { leaf: lp.radix, spine: sp.radix, ports, switches, spineRadix: sp.radix };
         }
       }
     }
@@ -3003,7 +3020,13 @@ function calculate() {
         rackPortsTotal = Math.round(effDownlinks);
         const leavesPerRail = Math.ceil(totalRacks / racksPerLeafPerRail);
         const rackAlignedLPP = leavesPerRail * railCount;
-        if (rackAlignedLPP > leafPerPlane) leafPerPlane = rackAlignedLPP;
+        if (rackAlignedLPP > leafPerPlane) {
+          if (rackAlignedLPP <= effSpineRadix) {
+            leafPerPlane = rackAlignedLPP;
+          } else {
+            warnHtml += '<div class="warn-box">Rack boundary alignment skipped: aligned leaf count (' + rackAlignedLPP + ') exceeds spine capacity (' + effSpineRadix + '). Leaves will serve partial racks.</div>';
+          }
+        }
       } else {
         warnHtml += '<div class="warn-box">Rack boundary alignment not possible: each rack\'s rail requires ' + linksPerRailPerRack + ' leaf ports but the selected leaf has only ' + Math.round(effDownlinks) + ' downlinks. Consider a larger leaf platform or chassis.</div>';
       }
