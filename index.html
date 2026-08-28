@@ -355,6 +355,8 @@
     flex-shrink: 0;
     position: sticky;
     top: 20px;
+    border-left: 1px solid var(--border);
+    padding-left: 20px;
   }
   .diagram-col:empty { display: none; }
 
@@ -3013,20 +3015,16 @@ function calculate() {
     if (selGpuModel && selGpuModel.rackScale && railCount > 1) {
       const totalRacks = Math.ceil(gpus / selGpuModel.gpusPerNode);
       const nicsPerRack = selGpuModel.nicsPerRack || (selGpuModel.gpusPerNode * linksPerGpu);
-      const linksPerRailPerRack = nicsPerRack / railCount;
+      const linksPerRailPerRack = nicBreakoutActive
+        ? Math.ceil(nicsPerRack / railCount)
+        : Math.ceil(nicsPerRack / railCount / planes);
       if (linksPerRailPerRack <= effDownlinks) {
         racksPerLeafPerRail = Math.floor(effDownlinks / linksPerRailPerRack);
         rackPortsUsed = racksPerLeafPerRail * linksPerRailPerRack;
         rackPortsTotal = Math.round(effDownlinks);
         const leavesPerRail = Math.ceil(totalRacks / racksPerLeafPerRail);
         const rackAlignedLPP = leavesPerRail * railCount;
-        if (rackAlignedLPP > leafPerPlane) {
-          if (rackAlignedLPP <= effSpineRadix) {
-            leafPerPlane = rackAlignedLPP;
-          } else {
-            warnHtml += '<div class="warn-box">Rack boundary alignment skipped: aligned leaf count (' + rackAlignedLPP + ') exceeds spine capacity (' + effSpineRadix + '). Leaves will serve partial racks.</div>';
-          }
-        }
+        if (rackAlignedLPP > leafPerPlane) leafPerPlane = rackAlignedLPP;
       } else {
         warnHtml += '<div class="warn-box">Rack boundary alignment not possible: each rack\'s rail requires ' + linksPerRailPerRack + ' leaf ports but the selected leaf has only ' + Math.round(effDownlinks) + ' downlinks. Consider a larger leaf platform or chassis.</div>';
       }
@@ -4045,9 +4043,16 @@ function calculate() {
   const diagPanel = document.getElementById('diagram-panel');
   diagPanel.dataset.opticMode = 'conventional';
   let actionHtml = '<div class="results-action-bar">';
-  actionHtml += '<div class="action-heading">Export</div>';
-  actionHtml += '<button class="results-print-btn" onclick="exportSlidePNG()" title="Download slide image"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download Slide</button>';
-  actionHtml += '<button class="results-print-btn" onclick="copySlidePNG()" title="Copy slide to clipboard"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>Copy Slide</button>';
+  actionHtml += '<div class="action-heading">Export — Fat-Tree</div>';
+  actionHtml += '<button class="results-print-btn" onclick="exportSlidePNG(\'fattree\')" title="Download fat-tree slide"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download Slide</button>';
+  actionHtml += '<button class="results-print-btn" onclick="copySlidePNG(\'fattree\')" title="Copy fat-tree slide"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>Copy Slide</button>';
+  const slideRailCount = parseInt(document.getElementById('rail-count').value) || 1;
+  if (slideRailCount > 1) {
+    actionHtml += '<div class="action-heading" style="margin-top:8px">Export — Rail</div>';
+    actionHtml += '<button class="results-print-btn" onclick="exportSlidePNG(\'rail\')" title="Download rail slide"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download Slide</button>';
+    actionHtml += '<button class="results-print-btn" onclick="copySlidePNG(\'rail\')" title="Copy rail slide"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>Copy Slide</button>';
+  }
+  actionHtml += '<div class="action-heading" style="margin-top:8px">Report</div>';
   actionHtml += '<button class="results-print-btn" onclick="window.print()" title="Print to PDF"><svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Print to PDF</button>';
   if (lastTopoConfig) {
     actionHtml += '<div class="action-heading" style="margin-top:8px">View</div>';
@@ -4074,6 +4079,7 @@ function calculate() {
   window.lastCalcResults = {
     gpu: selGpu, gpus, hosts, gpusPerNode, linksPerGpu,
     tierNum, planes, spineSpeed,
+    railCount: parseInt(document.getElementById('rail-count').value) || 1,
     hostSpeed: hostSpeedPerPlane,
     leafPlatform, spinePlatform,
     leafPerPlane: lastTopoConfig?.tiers?.find(t => t.id === 'leaf')?.perPlane || 0,
@@ -4129,7 +4135,7 @@ function openTopoModal() {
   document.getElementById('topo-title').textContent = topoTitle();
   overlay.classList.add('active');
   document.body.style.overflow = 'hidden';
-  setTimeout(() => renderTopology(), 100);
+  setTimeout(() => { renderTopology(); setTimeout(() => renderTopology(), 300); }, 50);
   document.addEventListener('keydown', topoEscHandler);
 }
 
@@ -4204,7 +4210,8 @@ function buildMRCTopoData() {
           });
         }
       } else {
-        const showFirst = dCount - 2;
+        const showEnd = (isRail && tier.id === bottomTier.id) ? Math.min(gpusPerPlane, count - 3) : 1;
+        const showFirst = dCount - 1 - showEnd;
         for (let i = 0; i < showFirst; i++) {
           realIndices[key].push(i);
           nodes.push({
@@ -4217,18 +4224,20 @@ function buildMRCTopoData() {
         }
         nodes.push({
           id: 'p' + p + '-' + tier.id + '-ellipsis',
-          label: '…+' + (count - showFirst - 1),
+          label: '…+' + (count - showFirst - showEnd),
           tier: 'ellipsis', rank: ti, plane: p,
           pos: { x: sx + showFirst * GAP_X, y: ti * GAP_Y }
         });
-        realIndices[key].push(count - 1);
-        nodes.push({
-          id: 'p' + p + '-' + tier.id + '-' + (count - 1),
-          label: tier.label + ' ' + count,
-          tier: tier.id, platform: tier.label, radix: tier.radix,
-          rank: ti, plane: p,
-          pos: { x: sx + (showFirst + 1) * GAP_X, y: ti * GAP_Y }
-        });
+        for (let i = count - showEnd; i < count; i++) {
+          realIndices[key].push(i);
+          nodes.push({
+            id: 'p' + p + '-' + tier.id + '-' + i,
+            label: tier.label + ' ' + (i + 1),
+            tier: tier.id, platform: tier.label, radix: tier.radix,
+            rank: ti, plane: p,
+            pos: { x: sx + (showFirst + 1 + (i - (count - showEnd))) * GAP_X, y: ti * GAP_Y }
+          });
+        }
       }
     }
 
@@ -4657,7 +4666,10 @@ function buildTopoData() {
       }
       return count;
     }
-    for (let i = 0; i < 3; i++) {
+    const gpus = c.hosts?.gpusPerNode || 8;
+    const showEnd = isRail ? Math.min(gpus, count - 3) : 1;
+    const showStart = 3;
+    for (let i = 0; i < showStart; i++) {
       tierRealIdx[tier.id].push(i);
       nodes.push({
         id: tier.id + '-' + i, label: tier.label + ' ' + (i + 1),
@@ -4665,14 +4677,16 @@ function buildTopoData() {
       });
     }
     nodes.push({
-      id: tier.id + '-ellipsis', label: '…+' + (count - 4) + ' more',
+      id: tier.id + '-ellipsis', label: '…+' + (count - showStart - showEnd) + ' more',
       tier: 'ellipsis', rank
     });
-    tierRealIdx[tier.id].push(count - 1);
-    nodes.push({
-      id: tier.id + '-' + (count - 1), label: tier.label + ' ' + count,
-      tier: tier.id, platform: tier.label, radix: tier.radix, rank
-    });
+    for (let i = count - showEnd; i < count; i++) {
+      tierRealIdx[tier.id].push(i);
+      nodes.push({
+        id: tier.id + '-' + i, label: tier.label + ' ' + (i + 1),
+        tier: tier.id, platform: tier.label, radix: tier.radix, rank
+      });
+    }
     return count;
   }
 
@@ -4687,13 +4701,15 @@ function buildTopoData() {
 
   if (isRail) {
     const totalNodes = bottomTier.perPlane * hostCountPerLeaf;
-    if (totalNodes <= 4) {
+    if (totalNodes <= 5) {
       for (let i = 0; i < totalNodes; i++) {
         nodes.push({ id: 'host-' + i, label: 'Node ' + (i + 1), tier: 'host', rank: hostRank });
       }
     } else {
       nodes.push({ id: 'host-0', label: 'Node 1', tier: 'host', rank: hostRank });
-      nodes.push({ id: 'host-ellipsis', label: '…+' + (totalNodes - 2) + ' nodes', tier: 'ellipsis', rank: hostRank });
+      nodes.push({ id: 'host-1', label: 'Node 2', tier: 'host', rank: hostRank });
+      nodes.push({ id: 'host-ellipsis', label: '…+' + (totalNodes - 4) + ' nodes', tier: 'ellipsis', rank: hostRank });
+      nodes.push({ id: 'host-' + (totalNodes - 2), label: 'Node ' + (totalNodes - 1), tier: 'host', rank: hostRank });
       nodes.push({ id: 'host-last', label: 'Node ' + totalNodes, tier: 'host', rank: hostRank });
     }
   } else if (tierCounts[bottomTier.id] <= MAX_SHOW) {
@@ -6080,7 +6096,7 @@ function buildSlideSVG() {
   const DARK = '#1A2332';
   const MID = '#4A5568';
   const LIGHT = '#718096';
-  const FONT = "'Helvetica Neue','Helvetica','Arial',sans-serif";
+  const FONT = "'Barlow','Helvetica Neue','Helvetica',sans-serif";
   const planeClr = ['#E6F1F8','#EDF7ED','#FFF7ED','#F0E6F6'];
   const planeBrd = ['#0065A3','#5AAD3A','#D97706','#7C3AED'];
   const planeLbl = ['#003D66','#3D7A28','#92400E','#5B21B6'];
@@ -6275,15 +6291,38 @@ function buildSlideSVG() {
 
   const hostLinkLbl = r.linksPerGpu + 'x ' + speedLabel(r.hostSpeed);
 
+  const halfN = Math.ceil(r.hosts / 2);
+  const nodeNums = [1, halfN, halfN + 1, r.hosts];
+  const gpuCells = Math.min(r.gpusPerNode, 8);
+  const cellPad = 4;
+  const cellW = (nodeBoxW - cellPad * 2) / gpuCells;
+  const cellH = 30;
+
   for (let i = 0; i < numNodesShow; i++) {
-    const ncx = nodeStartX + i * (nodeBoxW + ndGap) + nodeBoxW / 2;
-    if (isTwoTier) {
-      const lcx = leafStartX + i * (leafBoxW + lfGap) + leafBoxW / 2;
-      svg += '<line x1="' + lcx + '" y1="' + (leafY + leafBoxH) + '" x2="' + ncx + '" y2="' + nodeY + '" stroke="' + ARISTA_BLUE + '" stroke-width="1.5" opacity="0.35"/>';
+    const nx = nodeStartX + i * (nodeBoxW + ndGap);
+    const ncx = nx + nodeBoxW / 2;
+    if (i === 0) {
+      for (let g = 0; g < gpuCells; g++) {
+        const gx = nx + cellPad + g * cellW + 1 + (cellW - 2) / 2;
+        if (isTwoTier) {
+          const lcx = leafStartX + i * (leafBoxW + lfGap) + leafBoxW / 2;
+          svg += '<line x1="' + lcx + '" y1="' + (leafY + leafBoxH) + '" x2="' + gx + '" y2="' + nodeY + '" stroke="' + ARISTA_BLUE + '" stroke-width="1" opacity="0.3"/>';
+        } else {
+          for (let p = 0; p < r.planes; p++) {
+            const scx = spStartX + p * (spBoxW + spGap) + spBoxW / 2;
+            svg += '<line x1="' + scx + '" y1="' + (spY + spBoxH) + '" x2="' + gx + '" y2="' + nodeY + '" stroke="' + ARISTA_BLUE + '" stroke-width="1" opacity="0.3"/>';
+          }
+        }
+      }
     } else {
-      for (let p = 0; p < r.planes; p++) {
-        const scx = spStartX + p * (spBoxW + spGap) + spBoxW / 2;
-        svg += '<line x1="' + scx + '" y1="' + (spY + spBoxH) + '" x2="' + ncx + '" y2="' + nodeY + '" stroke="' + ARISTA_BLUE + '" stroke-width="1.5" opacity="0.35"/>';
+      if (isTwoTier) {
+        const lcx = leafStartX + i * (leafBoxW + lfGap) + leafBoxW / 2;
+        svg += '<line x1="' + lcx + '" y1="' + (leafY + leafBoxH) + '" x2="' + ncx + '" y2="' + nodeY + '" stroke="' + ARISTA_BLUE + '" stroke-width="1.5" opacity="0.35"/>';
+      } else {
+        for (let p = 0; p < r.planes; p++) {
+          const scx = spStartX + p * (spBoxW + spGap) + spBoxW / 2;
+          svg += '<line x1="' + scx + '" y1="' + (spY + spBoxH) + '" x2="' + ncx + '" y2="' + nodeY + '" stroke="' + ARISTA_BLUE + '" stroke-width="1.5" opacity="0.35"/>';
+        }
       }
     }
   }
@@ -6297,13 +6336,6 @@ function buildSlideSVG() {
     const nicSpd = r.spinePlatform?.portSpeed || r.hostSpeed;
     svg += '<text x="' + (nodeStartX - 12) + '" y="' + (hlMidY + 28) + '" font-size="10" fill="' + MID + '" text-anchor="end">1x ' + speedLabel(nicSpd) + '</text>';
   }
-
-  const halfN = Math.ceil(r.hosts / 2);
-  const nodeNums = [1, halfN, halfN + 1, r.hosts];
-  const gpuCells = Math.min(r.gpusPerNode, 8);
-  const cellPad = 4;
-  const cellW = (nodeBoxW - cellPad * 2) / gpuCells;
-  const cellH = 30;
 
   for (let i = 0; i < numNodesShow; i++) {
     const nx = nodeStartX + i * (nodeBoxW + ndGap);
@@ -6344,15 +6376,219 @@ function buildSlideSVG() {
   return svg;
 }
 
-function exportSlidePNG() {
-  const svgStr = buildSlideSVG();
-  if (!svgStr) { alert('Run a calculation first.'); return; }
+function buildRailSlideSVG() {
+  const r = window.lastCalcResults;
+  if (!r) return null;
 
+  const W = 1280, H = 720;
+  const ARISTA_BLUE = '#0065A3';
+  const ARISTA_DARK = '#003D66';
+  const DARK = '#1A2332';
+  const MID = '#4A5568';
+  const LIGHT = '#718096';
+  const FONT = "'Barlow','Helvetica Neue','Helvetica',sans-serif";
+  const railClr = ['#E6F1F8','#EDF7ED','#FFF7ED','#F0E6F6','#FEF2F2','#F0F9FF','#ECFDF5','#FDF4FF'];
+  const railBrd = ['#0065A3','#5AAD3A','#D97706','#7C3AED','#DC2626','#0284C7','#059669','#9333EA'];
+  const railLbl = ['#003D66','#3D7A28','#92400E','#5B21B6','#991B1B','#075985','#065F46','#6B21A8'];
+
+  const gpuLabel = (r.gpu && r.gpu.id !== 'custom') ? r.gpu.name.replace('NVIDIA ', '') : 'Custom';
+  const nodeWord = r.gpusPerNode >= 36 ? 'racks' : 'nodes';
+  const railCount = r.railCount || 1;
+  const titleStr = fmtN(r.hosts) + ' ' + gpuLabel + ' ' + nodeWord + ' (' + fmtN(r.gpus) + ' GPU) - Rail Topology - '
+    + railCount + ' Rails · ' + r.planes + ' Plane' + (r.planes > 1 ? 's' : '');
+
+  const isChassis = r.spinePlatform && r.spinePlatform.type === 'chassis';
+  const spineName = r.spinePlatform ? r.spinePlatform.name : 'Switch';
+  const leafName = r.leafPlatform ? r.leafPlatform.name : 'Switch';
+  const chassisShort = isChassis ? '780' + r.spinePlatform.slots + 'R4' : spineName;
+  const isTwoTier = r.tierNum >= 2 && r.tierNum <= 3;
+  const spPerPlane = r.spinePerPlane || 1;
+  const leavesPerRail = Math.ceil((r.leafPerPlane || 1) / railCount);
+
+  function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  let svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '" font-family="' + FONT + '">';
+  svg += '<rect x="0" y="0" width="' + W + '" height="' + H + '" fill="#F7FAFC"/>';
+
+  // === TITLE BAR ===
+  svg += '<rect x="20" y="12" width="1240" height="56" rx="8" fill="' + ARISTA_BLUE + '"/>';
+  svg += '<text x="38" y="48" font-size="22" font-weight="bold" fill="#FFFFFF">' + esc(titleStr) + '</text>';
+
+  // === BOM (left panel) ===
+  svg += '<rect x="20" y="78" width="310" height="594" rx="8" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>';
+  svg += '<text x="175" y="100" font-size="12" font-weight="bold" fill="' + ARISTA_BLUE + '" text-anchor="middle" letter-spacing="1.5">BILL OF MATERIALS</text>';
+  svg += '<line x1="40" y1="110" x2="310" y2="110" stroke="' + ARISTA_BLUE + '" stroke-width="0.5" opacity="0.3"/>';
+  let by = 138;
+  function bomHead(t) {
+    svg += '<text x="40" y="' + by + '" font-size="17" font-weight="bold" fill="' + ARISTA_BLUE + '">' + esc(t) + '</text>';
+    by += 30;
+  }
+  function bomText(t) {
+    svg += '<text x="40" y="' + by + '" font-size="14" fill="' + MID + '">' + esc(t) + '</text>';
+    by += 24;
+  }
+  function bomGap() { by += 20; }
+
+  if (r.tierNum === 1) {
+    bomHead('Spline');
+    if (isChassis) {
+      const slots = r.spinePlatform.slots || 8;
+      bomText(r.planes + 'x ' + chassisShort + ' (' + slots + ' line cards each)');
+      bomText((r.planes * slots) + 'x 7800R4C-36PE-LC total');
+    } else {
+      bomText((r.totalSpine || r.planes) + 'x ' + spineName);
+    }
+  } else {
+    bomHead('Spine');
+    bomText(r.totalSpine + 'x ' + spineName);
+    if (isChassis) {
+      const slots = r.spinePlatform.slots || 8;
+      bomText((r.totalSpine * slots) + 'x 7800R4C-36PE-LC total');
+    }
+    bomGap();
+    bomHead('Leaf');
+    bomText(r.totalLeaf + 'x ' + leafName);
+    bomText(railCount + ' rails · ' + leavesPerRail + ' leaves/rail');
+  }
+
+  bomGap();
+  bomHead('Optics — Fabric');
+  if (r.tierNum === 1) {
+    bomText('No optics required');
+  } else {
+    bomText(fmtN(r.opticCounts.spine) + 'x ' + opticType(r.spineSpeed));
+  }
+  bomGap();
+  bomHead('Optics — Host Access');
+  bomText(fmtN(r.opticCounts.hostSwitch + r.opticCounts.hostEnd) + 'x ' + opticType(r.hostSpeed));
+  bomGap();
+  bomHead('SW, License, Services');
+  bomText('Lic(E+Z)+Support+CV');
+
+  // === RAIL DIAGRAM (right panel) ===
+  if (!isTwoTier) return buildSlideSVG();
+
+  const diagCX = 790;
+  const diagW = 830;
+  const diagLeft = diagCX - diagW / 2;
+  const displayName = isChassis ? chassisShort : spineName;
+  const gpuCells = Math.min(r.gpusPerNode, 8);
+  const numRailsShow = Math.min(railCount, 8);
+
+  // --- Spine box at top ---
+  const spY = 90;
+  const spBoxW = Math.min(diagW * 0.45, 260);
+  const spBoxH = 55;
+  const spBoxX = diagCX - spBoxW / 2;
+  svg += '<rect x="' + spBoxX + '" y="' + spY + '" width="' + spBoxW + '" height="' + spBoxH + '" rx="8" fill="#E6F1F8" stroke="' + ARISTA_BLUE + '" stroke-width="1.5"/>';
+  svg += '<text x="' + diagCX + '" y="' + (spY + 20) + '" font-size="13" font-weight="bold" fill="' + DARK + '" text-anchor="middle">' + esc(fmtN(spPerPlane) + '× ' + displayName) + '</text>';
+  svg += '<text x="' + diagCX + '" y="' + (spY + 35) + '" font-size="10" fill="' + LIGHT + '" text-anchor="middle">Shared spine layer</text>';
+  svg += '<text x="' + diagCX + '" y="' + (spY + 48) + '" font-size="9" fill="' + LIGHT + '" text-anchor="middle">' + esc(r.planes + ' plane' + (r.planes > 1 ? 's' : '') + ' · ' + fmtN(r.totalSpine) + ' total') + '</text>';
+
+  // --- Leaf switches in a row, color-coded by rail ---
+  const leafY = spY + spBoxH + 70;
+  const leafBoxW = Math.min((diagW - (numRailsShow - 1) * 5) / numRailsShow, 100);
+  const leafBoxH = 34;
+  const leafGap = 5;
+  const leafTotalW = numRailsShow * leafBoxW + (numRailsShow - 1) * leafGap;
+  const leafStartX = diagCX - leafTotalW / 2;
+
+  for (let ri = 0; ri < numRailsShow; ri++) {
+    const lx = leafStartX + ri * (leafBoxW + leafGap);
+    const rc = railClr[ri % 8];
+    const rb = railBrd[ri % 8];
+    const rl = railLbl[ri % 8];
+    const lcx = lx + leafBoxW / 2;
+
+    // Leaf box with rail-colored border
+    svg += '<rect x="' + lx + '" y="' + leafY + '" width="' + leafBoxW + '" height="' + leafBoxH + '" rx="6" fill="' + rc + '" stroke="' + rb + '" stroke-width="2"/>';
+    svg += '<text x="' + lcx + '" y="' + (leafY + 15) + '" font-size="9" font-weight="bold" fill="' + rl + '" text-anchor="middle">Rail ' + ri + '</text>';
+    svg += '<text x="' + lcx + '" y="' + (leafY + 28) + '" font-size="8" fill="' + MID + '" text-anchor="middle">' + leavesPerRail + '× ' + esc(leafName) + '</text>';
+
+    // Spine-to-leaf connection (colored)
+    svg += '<line x1="' + diagCX + '" y1="' + (spY + spBoxH) + '" x2="' + lcx + '" y2="' + leafY + '" stroke="' + rb + '" stroke-width="2" opacity="0.5"/>';
+  }
+
+  // Leaves per plane label
+  svg += '<text x="' + diagCX + '" y="' + (leafY + leafBoxH + 14) + '" font-size="9" fill="' + LIGHT + '" text-anchor="middle">' + fmtN(r.leafPerPlane) + ' leaves / plane · ' + railCount + ' rails</text>';
+
+  // --- GPU nodes with rail-colored links ---
+  const nodeBoxWR = Math.min((diagW - 30) / 2, 260);
+  const nodeBoxHR = 50;
+  const nodeGap = 30;
+  const numNodesShow = 2;
+  const nodeTotalW = numNodesShow * nodeBoxWR + (numNodesShow - 1) * nodeGap;
+  const nodeStartX = diagCX - nodeTotalW / 2;
+  const nodeY = leafY + leafBoxH + 55;
+
+  const nodeNums = [1, 2];
+  const cellW = (nodeBoxWR - 8) / gpuCells;
+  const cellH = 28;
+
+  for (let ni = 0; ni < numNodesShow; ni++) {
+    const nx = nodeStartX + ni * (nodeBoxWR + nodeGap);
+    const ncx = nx + nodeBoxWR / 2;
+
+    // Node box
+    svg += '<rect x="' + nx + '" y="' + nodeY + '" width="' + nodeBoxWR + '" height="' + nodeBoxHR + '" rx="6" fill="#FFFFFF" stroke="#CBD5E0" stroke-width="1.5"/>';
+
+    // GPU cells
+    for (let g = 0; g < gpuCells; g++) {
+      const gx = nx + 4 + g * cellW + 1;
+      const ri = g % railCount;
+      const rc = railClr[ri % 8];
+      const rb = railBrd[ri % 8];
+      const rl = railLbl[ri % 8];
+
+      svg += '<rect x="' + gx + '" y="' + (nodeY + 4) + '" width="' + (cellW - 2) + '" height="' + cellH + '" rx="3" fill="' + rc + '" stroke="' + rb + '" stroke-width="1.5"/>';
+      svg += '<text x="' + (gx + (cellW - 2)/2) + '" y="' + (nodeY + 4 + cellH/2 + 4) + '" font-size="8" font-weight="bold" fill="' + rl + '" text-anchor="middle">G' + g + '</text>';
+
+      // Rail-colored link from GPU to its leaf
+      const gpuTopX = gx + (cellW - 2) / 2;
+      const leafIdx = Math.min(ri, numRailsShow - 1);
+      const lcx = leafStartX + leafIdx * (leafBoxW + leafGap) + leafBoxW / 2;
+      svg += '<line x1="' + lcx + '" y1="' + (leafY + leafBoxH) + '" x2="' + gpuTopX + '" y2="' + nodeY + '" stroke="' + rb + '" stroke-width="1.2" opacity="0.4" stroke-dasharray="' + (ni === 0 ? 'none' : '4,3') + '"/>';
+    }
+
+    // Node label
+    svg += '<text x="' + ncx + '" y="' + (nodeY + nodeBoxHR + 16) + '" font-size="11" font-weight="bold" fill="' + DARK + '" text-anchor="middle">' + esc(gpuLabel + ' #' + nodeNums[ni]) + '</text>';
+
+    // Ellipsis after second node
+    if (ni === 1 && r.hosts > 2) {
+      svg += '<text x="' + (nx + nodeBoxWR + 14) + '" y="' + (nodeY + nodeBoxHR / 2 + 3) + '" font-size="14" fill="' + ARISTA_BLUE + '" opacity="0.4">···×' + fmtN(r.hosts) + '</text>';
+    }
+  }
+
+  // Host speed label
+  const hlLbl = r.linksPerGpu + 'x ' + speedLabel(r.hostSpeed);
+  const hlY = (leafY + leafBoxH + nodeY) / 2 + 4;
+  svg += '<rect x="' + (diagCX + nodeTotalW/2 + 12) + '" y="' + (hlY - 10) + '" width="' + (hlLbl.length * 7 + 16) + '" height="20" rx="10" fill="' + ARISTA_BLUE + '" opacity="0.08"/>';
+  svg += '<text x="' + (diagCX + nodeTotalW/2 + 20 + hlLbl.length * 3.5) + '" y="' + (hlY + 3) + '" font-size="11" font-weight="600" fill="' + ARISTA_DARK + '" text-anchor="middle">' + esc(hlLbl) + '</text>';
+
+  // === FOOTER ===
+  svg += '<rect x="20" y="680" width="1240" height="30" rx="6" fill="' + ARISTA_BLUE + '" opacity="0.06"/>';
+  svg += '<g transform="translate(30,684) scale(0.1)">'
+    + '<g fill="' + ARISTA_BLUE + '">'
+    + '<path d="M391.027,103.426c36.994,0,55.491-25.688,55.491-51.378c0-25.688-18.498-50.353-57.546-50.353c-28.773-1.029-134.617-1.029-134.617-1.029v173.668h32.879V28.413c25.691,0,90.43,0,103.79,0c18.496,0,27.745,6.163,27.745,23.635c0,14.385-9.247,22.606-26.718,22.606h-86.315l102.761,98.648h40.078l-73.991-71.932C381.78,103.426,390,103.426,391.027,103.426z"/>'
+    + '<rect x="480.429" y="0.669" width="31.856" height="173.665"/>'
+    + '<polygon points="916.137,27.387 916.137,0.669 848.313,0.669 816.457,0.669 759.938,0.669 741.441,27.387 816.457,27.387 816.457,174.334 848.313,174.334 848.313,27.387"/>'
+    + '<path d="M678.756,72.6c-16.441,0-57.543,0-81.182,0c-16.438,0-25.689-7.192-25.689-21.58c0-16.44,11.305-23.633,25.689-23.633c22.609,0,110.98,0,110.98,0l14.387-26.718c0,0-107.898,0-126.395,0c-28.775,0-52.407,21.577-52.407,51.382c0,26.715,22.608,48.294,53.434,48.294c17.473,0,69.877,0,81.182,0c18.5,0,28.775,8.224,28.775,23.637c0,13.357-11.305,22.608-28.775,22.608H566.748l-16.44,27.744c0,0,98.649,0,132.558,0c33.912,0,52.406-24.658,52.406-52.404C735.275,96.233,713.695,72.6,678.756,72.6z"/>'
+    + '<path d="M104.325,11.972C97.133,23.272,1.564,174.334,1.564,174.334h33.91l31.858-51.381h67.822l17.47-27.746H84.8l36.993-59.602l86.321,137.697h33.911c0,0-94.542-149.001-102.765-162.359C130.013-2.413,113.574-1.387,104.325,11.972z"/>'
+    + '<path d="M1079.523,174.334h33.912c0,0-94.539-149.003-102.764-162.362c-9.244-15.415-25.689-14.385-34.938-1.028c-7.195,11.301-102.762,162.359-102.762,162.359h33.91l31.855-51.378h68.852l17.467-27.746h-67.82l36.996-59.603L1079.523,174.334z"/>'
+    + '</g></g>';
+  svg += '<text x="148" y="700" font-size="9" fill="' + LIGHT + '">Copyright © Arista ' + new Date().getFullYear() + '. All rights reserved.</text>';
+  svg += '<text x="640" y="700" font-size="9" fill="' + LIGHT + '" text-anchor="middle">Confidential.</text>';
+  svg += '<text x="1245" y="700" font-size="9" fill="' + LIGHT + '" text-anchor="end">AI Network Calculator v' + APP_VERSION + '</text>';
+
+  svg += '</svg>';
+  return svg;
+}
+
+function renderSlidePNG(svgStr, callback) {
   const scale = 2;
   const W = 1280 * scale;
   const H = 720 * scale;
   const xml = svgStr.replace(/width="\d+"/, 'width="' + W + '"').replace(/height="\d+"/, 'height="' + H + '"');
-
   const img = new Image();
   img.onload = function() {
     const canvas = document.createElement('canvas');
@@ -6360,43 +6596,36 @@ function exportSlidePNG() {
     canvas.height = H;
     const ctx = canvas.getContext('2d');
     ctx.drawImage(img, 0, 0, W, H);
-    canvas.toBlob(function(blob) {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      const r = window.lastCalcResults;
-      const gpuLabel = (r.gpu && r.gpu.id !== 'custom') ? r.gpu.name.replace('NVIDIA ', '').replace(/\s+/g, '-') : 'Custom';
-      a.download = 'AI-Network-' + fmtN(r.gpus) + 'GPU-' + gpuLabel + '.png';
-      a.click();
-      URL.revokeObjectURL(a.href);
-    }, 'image/png');
+    canvas.toBlob(callback, 'image/png');
   };
   img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(xml)));
 }
 
-function copySlidePNG() {
-  const svgStr = buildSlideSVG();
+function exportSlidePNG(view) {
+  const svgStr = view === 'rail' ? buildRailSlideSVG() : buildSlideSVG();
   if (!svgStr) { alert('Run a calculation first.'); return; }
+  renderSlidePNG(svgStr, function(blob) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    const r = window.lastCalcResults;
+    const gpuLabel = (r.gpu && r.gpu.id !== 'custom') ? r.gpu.name.replace('NVIDIA ', '').replace(/\s+/g, '-') : 'Custom';
+    const suffix = view === 'rail' ? '-Rail' : '-FatTree';
+    a.download = 'AI-Network-' + fmtN(r.gpus) + 'GPU-' + gpuLabel + suffix + '.png';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+}
 
-  const scale = 2;
-  const W = 1280 * scale;
-  const H = 720 * scale;
-  const xml = svgStr.replace(/width="\d+"/, 'width="' + W + '"').replace(/height="\d+"/, 'height="' + H + '"');
-
-  const img = new Image();
-  img.onload = function() {
-    const canvas = document.createElement('canvas');
-    canvas.width = W;
-    canvas.height = H;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0, W, H);
-    canvas.toBlob(function(blob) {
-      navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]).then(function() {
-        const btn = document.querySelector('.results-print-btn[title="Copy slide to clipboard"]');
-        if (btn) { const orig = btn.innerHTML; btn.textContent = 'Copied!'; setTimeout(function() { btn.innerHTML = orig; }, 1500); }
-      }).catch(function() { alert('Copy failed — your browser may not support clipboard image writes.'); });
-    }, 'image/png');
-  };
-  img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(xml)));
+function copySlidePNG(view) {
+  const svgStr = view === 'rail' ? buildRailSlideSVG() : buildSlideSVG();
+  if (!svgStr) { alert('Run a calculation first.'); return; }
+  renderSlidePNG(svgStr, function(blob) {
+    navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]).then(function() {
+      const title = view === 'rail' ? 'Copy rail slide' : 'Copy fat-tree slide';
+      const btn = document.querySelector('.results-print-btn[title="' + title + '"]');
+      if (btn) { const orig = btn.innerHTML; btn.textContent = 'Copied!'; setTimeout(function() { btn.innerHTML = orig; }, 1500); }
+    }).catch(function() { alert('Copy failed — your browser may not support clipboard image writes.'); });
+  });
 }
 
 </script>
