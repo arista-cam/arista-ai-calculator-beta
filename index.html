@@ -2610,12 +2610,6 @@ function nextDivisorGte(min, n) {
 /* Calculates the storage network fabric design. Two modes:
  *   - Shared: Storage nodes connect to existing frontend leaf switches.
  *     No additional switches needed, just optics for the storage connections.
-/* Calculates the frontend (non-GPU) network fabric. This is a separate
- * leaf-spine network running alongside the backend AI fabric, typically
- * for management traffic, data ingestion, and checkpoint storage I/O.
- * Uses different platforms (7050SX3, 7050CX3, 7280CR3) at lower speeds
- * (10G-100G) than the backend (400G-1.6T). Each compute node gets 1-4
- * frontend NIC connections in addition to its GPU backend connections. */
  *   - Dedicated: Independent leaf-spine fabric for storage traffic. Has its
  *     own platform selection, optics, and power calculations.
  *
