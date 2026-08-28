@@ -1374,6 +1374,66 @@
 
 
 <script>
+/*
+ * ============================================================================
+ * ARISTA AI NETWORK CALCULATOR
+ * ============================================================================
+ *
+ * Single-file web application that designs AI cluster network fabrics.
+ * Given a GPU model and cluster size, it calculates the complete switch,
+ * optics, and power bill of materials for Arista leaf-spine (Clos) networks.
+ *
+ * Architecture: Single HTML file, no build step. Uses D3.js (loaded via CDN)
+ * for interactive topology visualization. All state is in the DOM and a few
+ * global variables — no framework, no bundler.
+ *
+ * KEY NETWORKING CONCEPTS:
+ *
+ * Tiers: The number of switch layers in the Clos fabric.
+ *   - Tier 1 (Single): One switch/chassis connects directly to all hosts.
+ *   - Tier 2 (Leaf-Spine): Leaf switches connect to hosts; spine switches
+ *     interconnect all leaves. Standard for most AI training clusters.
+ *   - Tier 3 (Super-Spine): Adds a third layer above spines for very large
+ *     clusters (74K+ GPUs). Organized into pods of leaf+spine.
+ *   - Tier 4 (DES): Distributed Etherlink Switch — Arista's proprietary
+ *     single-tier chassis fabric using distributed forwarding.
+ *
+ * Planes: Independent, parallel copies of the fabric for redundancy and
+ *   bandwidth. Each GPU connects to each plane (one link per plane). A
+ *   2-plane design doubles the available bandwidth and provides path diversity.
+ *
+ * Rails: Within a plane, GPUs are assigned to "rails" — leaf switch groups
+ *   that serve specific GPU indices. GPU 0 across all nodes connects to
+ *   Rail 0's leaves, GPU 1 to Rail 1's leaves, etc. This creates traffic
+ *   locality for collective operations (allreduce). Rail count typically
+ *   matches GPUs-per-node (8 for server-scale, 4 for rack-scale NVL72).
+ *
+ * NIC Breakout: When a GPU has fewer physical NIC links than fabric planes,
+ *   each NIC link is "broken out" across multiple planes at reduced speed.
+ *   Example: B300 with 1× CX8 (800G) across 2 planes → 2× 400G per plane.
+ *   Activated when linksPerGpu < planes.
+ *
+ * Rack-Scale Alignment: For rack-scale GPU systems (NVL72), the fabric must
+ *   not split a single rack's NICs across different leaf switch sets — this
+ *   creates cabling complexity and traffic asymmetry. Multiple racks CAN
+ *   share a leaf. The alignment calculation is per-plane: divide total rack
+ *   NIC count by (railCount × planes) to get links per rack per rail per plane.
+ *
+ * Radix Normalization: All platform radix values in the PLATFORMS array are
+ *   normalized to 800G-equivalent port counts. The 7060XE7 has 64 physical
+ *   1.6T ports but radix=128 (64×2) because each 1.6T port yields two 800G
+ *   connections. This means the breakout formula uses a hardcoded 800 as the
+ *   reference speed: breakout = 800 / hostSpeedPerPlane.
+ *
+ * MAJOR CODE SECTIONS:
+ *   - Data Constants: GPU/NIC/Platform models, optic power data (~line 1498)
+ *   - Platform Selection: Auto-select algorithms for tiers 1-3 (~line 1577)
+ *   - UI Controls: Mode toggle, accordion, dropdowns, sync (~line 1700)
+ *   - Breakout & Sync: Port breakout, uplink options (~line 2155)
+ *   - Calculation Engine: Main calculate(), FE, Storage (~line 2420)
+ *   - Topology Visualization: D3-based interactive diagrams (~line 4094)
+ *   - Slide Export: PNG slide generation (fat-tree & rail) (~line 6089)
+ */
 function toggleSection(id) {
   document.getElementById(id).classList.toggle('collapsed');
   updateSectionSummaries();
@@ -1504,6 +1564,11 @@ const TIER_HINTS = {
 
 function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+/* Per-optic power consumption in watts, from Arista platform datasheets.
+ * Keys are port speeds in Gbps. Each entry has conventional (FRO) and LPO variants.
+ * LPO (Linear-drive Pluggable Optics) uses linear signaling instead of DSP,
+ * reducing power ~40-60% but requiring shorter reaches (~500m single-mode).
+ * LPO is available at 800G; not yet available at 1.6T. */
 const OPTIC_POWER = {
   10:   { conventional: 1, lpo: 1 },
   25:   { conventional: 1.5, lpo: 1.5 },
@@ -1519,6 +1584,15 @@ const DES_POWER = {
   spine: { typ: 1032, max: 3848 },
 };
 
+/* Arista switching platforms available for the backend AI fabric.
+ * CRITICAL: radix values are normalized to 800G-equivalent port counts.
+ * - 7060X6 (800G native): radix = physical port count (32 or 64)
+ * - 7060XE7 (1.6T native): radix = 128 = 64 physical ports × 2 (each 1.6T
+ *   port provides two 800G-equivalent connections)
+ * - 7800R4 chassis: radix = total line card ports (e.g., 8 slots × 36 ports = 288)
+ *   Chassis platforms are spine-only (excluded from LEAF_PLATFORMS).
+ * powerTyp = typical power at 25°C, 50% load (excludes optics).
+ * powerMax = maximum power at 40°C, 100% load (excludes optics). */
 const PLATFORMS = [
   { name: '7060X6',        radix: 32,  type: 'fixed',   portSpeed: 800,  desc: '7060X6 (32-port)',  powerTyp: 320, powerMax: 600, ru: 1 },
   { name: '7060X6',        radix: 64,  type: 'fixed',   portSpeed: 800,  desc: '7060X6 (64-port)',  powerTyp: 640, powerMax: 1194, ru: 2 },
@@ -1542,6 +1616,25 @@ const FE_SPINE_PLATFORMS = [
   { name: '7280CR3-32P4', ports: 32, desc: '7280CR3-32P4 (32×100G)', powerTyp: 535, powerMax: 849, ru: 1 },
 ];
 
+/* GPU server and rack-scale models with per-model networking defaults.
+ * When a user selects a GPU model, onGpuChange() applies these defaults
+ * to the form — NIC, speed, links, planes, rails, tier, and platform.
+ *
+ * Field reference:
+ *   gpusPerNode    - GPUs per server node (8) or per rack (36/72 for NVL systems)
+ *   defaultNic     - NIC model ID (e.g., 'cx8' for ConnectX-8 SuperNIC)
+ *   defaultSpeed   - NIC native link speed in Gbps (matches NIC hardware)
+ *   defaultLinks   - Physical NIC connections per GPU. When < planes, NIC
+ *                    breakout activates (each link split across multiple planes)
+ *   defaultPlanes  - Number of independent fabric planes
+ *   defaultRails   - Number of rails (leaf groups per plane). Typically matches
+ *                    gpusPerNode for server-scale, or gpusPerNode/nicsPerGPU for rack-scale
+ *   defaultTier    - Default topology tier (1-4)
+ *   defaultSpineSpeed - Spine-to-leaf link speed (can differ from host speed)
+ *   rackScale      - true for NVL72-style systems where the "node" is a full rack
+ *   nicsPerRack    - Total physical NIC ports per rack (for rack-alignment calc)
+ *   defaultLeaf    - Preferred leaf platform radix (e.g., 64 for 7060X6-64)
+ *   defaultSpine   - Preferred spine platform radix (e.g., 128 for 7060XE7) */
 const GPU_MODELS = [
   { id: 'custom',    name: 'Custom',              gpusPerNode: 8,  defaultNic: null,         defaultSpeed: 400, vendor: null },
   { id: 'rubin72',   name: 'NVIDIA Vera Rubin NVL72', gpusPerNode: 72, defaultNic: 'cx9',   defaultSpeed: 800, defaultLinks: 2, vendor: 'nvidia', defaultPlanes: 2, defaultRails: 4, defaultTier: 2, defaultSpineSpeed: 800, rackScale: true, nicsPerRack: 144, defaultLeaf: 128, defaultSpine: 128 },
@@ -1559,6 +1652,10 @@ const GPU_MODELS = [
   { id: 'mi300x',    name: 'AMD MI300X',          gpusPerNode: 8,  defaultNic: 'pollara400', defaultSpeed: 400, vendor: 'amd', defaultPlanes: 1, defaultRails: 8, defaultTier: 2, defaultSpineSpeed: 800 },
 ];
 
+/* NIC/DPU models with native link speeds. Note: "breakout" in this tool
+ * refers to switch-port breakout (splitting a high-speed switch port into
+ * multiple lower-speed host connections), NOT NIC-side breakout. The NIC
+ * always operates at its native speed; it's the switch port that breaks out. */
 const NIC_MODELS = [
   { id: 'custom',      name: 'Custom',                     speed: null, vendor: null },
   { id: 'cx9',         name: 'NVIDIA ConnectX-9',           speed: 800,  vendor: 'nvidia' },
@@ -1570,6 +1667,8 @@ const NIC_MODELS = [
   { id: 'thor2',       name: 'Broadcom Thor2',              speed: 400,  vendor: 'broadcom' },
 ];
 
+/* Leaf platforms are fixed (non-chassis) switches only. Chassis platforms
+ * (7800R4) are too large for leaf role — they're spine-only in this tool. */
 const LEAF_PLATFORMS = PLATFORMS.filter(p => p.type !== 'chassis');
 
 let lastAutoSelectResult = null;
@@ -1912,6 +2011,22 @@ function getRadix(role) {
   return parseInt(select.value) || 64;
 }
 
+/* Automatically selects the best-fit leaf and spine platforms based on the
+ * current cluster size, host speed, and tier. Called whenever inputs change.
+ *
+ * NIC breakout logic: activates when linksPerGpu < planes (e.g., B300 with
+ * 1× CX8 across 2 planes). When active, hostSpeedPerPlane is reduced
+ * (800G × 1 link / 2 planes = 400G), and ALL links appear on every plane
+ * (linksPerPlane = totalHostLinks, not divided by planes).
+ *
+ * The breakout formula "800 / hostSpeedPerPlane" works because PLATFORMS
+ * radix values are pre-normalized to 800G units. A 7060X6 with 400G hosts
+ * gives breakout=2 (each 800G port serves two 400G connections). A 7060XE7
+ * with 800G hosts gives breakout=1 (each 800G-equivalent port serves one
+ * 800G connection — the 1.6T→800G conversion is already in the radix).
+ *
+ * In simple mode, the result is immediately applied to the UI dropdowns.
+ * In advanced mode, the result is stored but not applied (user retains control). */
 function autoSelectPlatforms() {
   clearResults();
   const tierNum = parseInt(document.querySelector('input[name=tier]:checked').value);
@@ -1961,6 +2076,9 @@ function setPlatformSelection(leafRadix, spineRadix) {
   document.getElementById('spine-radix-custom').style.display = 'none';
 }
 
+/* Stores the auto-selected platform radix values. In simple mode, immediately
+ * applies them to the UI dropdowns. In advanced mode, only stores the result
+ * (the user's manual selection is preserved). */
 function storeAutoSelectResult(leafRadix, spineRadix) {
   lastAutoSelectResult = { leafRadix, spineRadix };
   if (currentMode === 'simple') {
@@ -1981,6 +2099,28 @@ function autoSelect1Tier(linksPerPlane, breakout) {
   storeAutoSelectResult(null, PLATFORMS[PLATFORMS.length - 1].radix);
 }
 
+/* Selects the optimal leaf/spine combination for two-tier Clos topology.
+ *
+ * Uses a two-pass approach:
+ *   Pass 0 (strict): requires spine >= leaf radix and uplinks fit
+ *   Pass 1 (relaxed): allows smaller spines and oversubscribed uplinks
+ *
+ * Optimization criteria depends on scale-out planning:
+ *   - No scale-out (targetLPP <= linksPerPlane): prefers the SMALLEST spine
+ *     radix that produces a valid design, then minimizes total port count.
+ *     This avoids oversizing with a chassis when a fixed switch suffices.
+ *   - With scale-out (targetLPP > linksPerPlane): minimizes total port count
+ *     across all candidates, then breaks ties by fewest switches. This tends
+ *     to select larger spines that accommodate future growth.
+ *
+ * The candidate leaf count (leafPerPlane) uses current GPU count.
+ * The spine sizing (spineLeafPP) uses the LARGER of current or target GPU count.
+ * This is the "pre-provisioned spine" strategy: buy bigger spines now, add
+ * leaves later as the cluster grows.
+ *
+ * Feasibility filter: a candidate is valid only when spinePerPlane <= effUplinks
+ * (spine count doesn't exceed leaf uplink ports) AND effUplinks divides evenly
+ * among spines (for symmetric uplink distribution). */
 function autoSelect2Tier(linksPerPlane, breakout, targetLPP) {
   const spSpeed = parseInt(document.getElementById('spine-speed').value) || 800;
   const ulBreak = 800 / spSpeed;
@@ -2020,6 +2160,13 @@ function autoSelect2Tier(linksPerPlane, breakout, targetLPP) {
       }
     }
     if (best) break;
+/* Recalculates breakout options based on current leaf platform port speed
+ * and host speed. Breakout = leafPortSpeed / hostSpeed, determining how many
+ * host connections each physical leaf port serves.
+ *
+ * The dropdown is always disabled (auto-determined) — breakout is a physical
+ * consequence of speed mismatch, not a user choice. Example: 800G leaf port
+ * with 400G hosts → breakout=2 (one port serves two hosts). */
   }
 
   if (best) {
@@ -2031,6 +2178,11 @@ function autoSelect2Tier(linksPerPlane, breakout, targetLPP) {
   }
 }
 
+/* Selects the optimal leaf/spine combination for three-tier Clos topology.
+ * Same optimization logic as autoSelect2Tier (smallest spine without scale-out,
+ * minimum ports with scale-out). Adds pod-based design: groups of leaf switches
+ * (edge leaves) connect to aggregation leaves, which connect to super-spines.
+ * The pod count is derived from the target leaf count and spine downlink capacity. */
 function autoSelect3Tier(linksPerPlane, breakout, targetLPP) {
   const spSpeed = parseInt(document.getElementById('spine-speed').value) || 800;
   const ulBreak = 800 / spSpeed;
@@ -2043,6 +2195,10 @@ function autoSelect3Tier(linksPerPlane, breakout, targetLPP) {
       const physDown = Math.floor(lp.radix / 2);
       const effDown  = physDown * breakout;
       const uplinks  = lp.radix - physDown;
+/* Feature flag for NIC breakout (always returns true). Kept as a named
+ * function for readability at call sites. NIC breakout is the mechanism
+ * where a single NIC link fans out to multiple fabric planes at reduced
+ * speed — distinct from switch-port breakout. */
       const effUp    = uplinks * ulBreak;
       if (effDown <= 0 || uplinks <= 0) continue;
 
@@ -2060,6 +2216,13 @@ function autoSelect3Tier(linksPerPlane, breakout, targetLPP) {
         if (pass === 0 && sp.radix < lp.radix) continue;
         const effSpR = sp.radix * ulBreak;
         if (podsNeeded > effSpR) continue;
+/* Populates the uplinks-per-spine dropdown. Each leaf has a fixed number of
+ * uplink ports (leafRadix - physDownlinks). These uplinks are distributed
+ * evenly across spines: uplinkBundle = effUplinks / spineCount.
+ *
+ * The constraint effUplinks % spineCount === 0 ensures symmetric distribution
+ * (every spine gets the same number of uplinks from each leaf). The dropdown
+ * shows all valid divisors of effUplinks as options. */
         const spinePerPlane = Math.ceil(spinePortsNeeded / effSpR);
         const ports = (leaf2PerPlane + leaf1PerPlane) * lp.radix + spinePerPlane * sp.radix;
         const switches = leaf2PerPlane + leaf1PerPlane + spinePerPlane;
@@ -2166,6 +2329,13 @@ function syncFromNodes() {
   autoSelectPlatforms();
 }
 
+/* Recalculates breakout options based on current leaf platform port speed
+ * and host speed. Breakout = leafPortSpeed / hostSpeed, determining how many
+ * host connections each physical leaf port serves.
+ *
+ * The dropdown is always disabled (auto-determined) — breakout is a physical
+ * consequence of speed mismatch, not a user choice. Example: 800G leaf port
+ * with 400G hosts → breakout=2 (one port serves two hosts). */
 function syncBreakout() {
   const hostSpeed = parseInt(document.getElementById('host-speed').value) || 400;
   const leafPortSpeed = getSelectedPlatformPortSpeed('leaf');
@@ -2194,6 +2364,10 @@ function syncBreakout() {
   clearResults();
 }
 
+/* Feature flag for NIC breakout (always returns true). Kept as a named
+ * function for readability at call sites. NIC breakout is the mechanism
+ * where a single NIC link fans out to multiple fabric planes at reduced
+ * speed — distinct from switch-port breakout. */
 function isNicBreakoutEnabled() {
   return true;
 }
@@ -2211,6 +2385,13 @@ function syncBreakoutOptions() {
   }
 }
 
+/* Populates the uplinks-per-spine dropdown. Each leaf has a fixed number of
+ * uplink ports (leafRadix - physDownlinks). These uplinks are distributed
+ * evenly across spines: uplinkBundle = effUplinks / spineCount.
+ *
+ * The constraint effUplinks % spineCount === 0 ensures symmetric distribution
+ * (every spine gets the same number of uplinks from each leaf). The dropdown
+ * shows all valid divisors of effUplinks as options. */
 function updateUplinksPerSpineOptions() {
   const select = document.getElementById('uplinks-per-spine');
   if (!select) return;
@@ -2248,6 +2429,15 @@ function updateUplinksPerSpineOptions() {
   const uplinks       = leafRadix - physDownlinks;
   const effUplinks    = uplinks * uplinkBreakout;
   const effSpineRadix = spineRadix * uplinkBreakout;
+/* Calculates the storage network fabric design. Two modes:
+ *   - Shared: Storage nodes connect to existing frontend leaf switches.
+ *     No additional switches needed, just optics for the storage connections.
+ *   - Dedicated: Independent leaf-spine fabric for storage traffic. Has its
+ *     own platform selection, optics, and power calculations.
+ *
+ * Storage node count is derived from the GPU cluster size using a configurable
+ * GPU-to-storage ratio (1:8, 1:16, 1:32, 1:64). Each storage node connects
+ * to the fabric via 25G or 100G links (much lower bandwidth than GPU traffic). */
 
   const totalHostLinks = gpus * linksPerGpu;
   const linksPerPlane  = nicBreakout ? totalHostLinks : Math.ceil(totalHostLinks / planesVal);
@@ -2417,6 +2607,21 @@ function nextDivisorGte(min, n) {
   return min;
 }
 
+/* Calculates the storage network fabric design. Two modes:
+ *   - Shared: Storage nodes connect to existing frontend leaf switches.
+ *     No additional switches needed, just optics for the storage connections.
+/* Calculates the frontend (non-GPU) network fabric. This is a separate
+ * leaf-spine network running alongside the backend AI fabric, typically
+ * for management traffic, data ingestion, and checkpoint storage I/O.
+ * Uses different platforms (7050SX3, 7050CX3, 7280CR3) at lower speeds
+ * (10G-100G) than the backend (400G-1.6T). Each compute node gets 1-4
+ * frontend NIC connections in addition to its GPU backend connections. */
+ *   - Dedicated: Independent leaf-spine fabric for storage traffic. Has its
+ *     own platform selection, optics, and power calculations.
+ *
+ * Storage node count is derived from the GPU cluster size using a configurable
+ * GPU-to-storage ratio (1:8, 1:16, 1:32, 1:64). Each storage node connects
+ * to the fabric via 25G or 100G links (much lower bandwidth than GPU traffic). */
 function calculateStorage(totalGPUs, feResult) {
   if (!isStorEnabled()) return null;
   const storRatio = parseInt(document.getElementById('stor-ratio').value) || 16;
@@ -2589,6 +2794,12 @@ function calculateStorage(totalGPUs, feResult) {
     storageNodes, isShared: false, topoTiers, topoLinks, topoHosts: { storageNodes, storNicSpeed } };
 }
 
+/* Calculates the frontend (non-GPU) network fabric. This is a separate
+ * leaf-spine network running alongside the backend AI fabric, typically
+ * for management traffic, data ingestion, and checkpoint storage I/O.
+ * Uses different platforms (7050SX3, 7050CX3, 7280CR3) at lower speeds
+ * (10G-100G) than the backend (400G-1.6T). Each compute node gets 1-4
+ * frontend NIC connections in addition to its GPU backend connections. */
 function calculateFE(hosts, gpusPerNode) {
   if (!isFEEnabled()) return null;
   const feLinksPerServer = parseInt(document.getElementById('fe-links-per-server').value) || 1;
@@ -2725,6 +2936,51 @@ function calculateFE(hosts, gpusPerNode) {
     topoTiers, topoLinks, topoHosts: { feLinksPerServer, feNicSpeed } };
 }
 
+/* ============================================================================
+ * MAIN CALCULATION ENGINE
+ * ============================================================================
+ *
+ * Entry point for all fabric design calculations. Reads form inputs, computes
+ * the complete network BOM, and renders results HTML.
+ *
+ * CALCULATION FLOW:
+ * 1. Read inputs: GPU count, GPUs/node, links/GPU, tier, planes, speeds,
+ *    platform radix values, oversubscription ratio, rail count.
+ *
+ * 2. Compute NIC breakout: If linksPerGpu < planes, NIC breakout activates.
+ *    - hostSpeedPerPlane = hostSpeed × linksPerGpu / planes
+ *    - linksPerPlane = totalHostLinks (all links on every plane)
+ *    Without NIC breakout:
+ *    - hostSpeedPerPlane = hostSpeed
+ *    - linksPerPlane = ceil(totalHostLinks / planes)
+ *
+ * 3. Compute breakout and effective port counts:
+ *    - breakout = 800 / hostSpeedPerPlane (800G is the radix reference speed)
+ *    - physDownlinks = floor(leafRadix × oversub / (1 + oversub))
+ *      At oversub=1 (default): exactly half the ports face hosts.
+ *      At oversub=1.3: ~57% of ports face hosts (leaf oversubscription).
+ *    - effDownlinks = physDownlinks × breakout
+ *    - effUplinks = (leafRadix - physDownlinks) × uplinkBreakout
+ *    - effSpineRadix = spineRadix × uplinkBreakout
+ *
+ * 4. Tier-specific calculation (1-tier, 2-tier, 3-tier, or DES).
+ *    See inline comments within each tier block.
+ *
+ * 5. Count optics (fabric + host access), estimate power, build results HTML.
+ *
+ * 6. Generate topology configuration (lastTopoConfig) for the D3 viewer.
+ *
+ * 7. Store results in window.lastCalcResults for slide export.
+ *
+ * KEY DESIGN DECISIONS:
+ * - Spine sizing uses target GPU count (scale-out), leaf sizing uses current.
+ *   This is the "pre-provisioned spine" strategy.
+ * - bundleSize = effUplinks / spinePerPlane must be >= 1 (each leaf must
+ *   connect to every spine with at least one link).
+ * - nextDivisorGte() ensures even uplink distribution across spines.
+ * - Rack-scale alignment (NVL72): linksPerRailPerRack is per-plane when
+ *   NIC breakout is inactive (divide by planes). This ensures multiple racks
+ *   can share a leaf — e.g., 3 VR NVL72 racks per leaf at 18 links each. */
 function calculate() {
   const totalGPUs   = parseInt(document.getElementById('total-gpus').value) || 0;
   const numNodes    = parseInt(document.getElementById('num-nodes').value) || 0;
@@ -2763,6 +3019,9 @@ function calculate() {
   const gpus   = totalGPUs || hosts * gpusPerNode;
 
   const totalHostLinks = gpus * linksPerGpu;
+  // NIC breakout: when each GPU has fewer NIC links than fabric planes,
+  // each link is shared across planes at reduced speed. This changes both
+  // the per-plane link count and the effective host speed per plane.
   const nicBreakoutEnabled = isNicBreakoutEnabled();
   const nicBreakoutActive = nicBreakoutEnabled && planes > 1 && linksPerGpu < planes;
   const linksPerPlane  = nicBreakoutActive ? totalHostLinks : Math.ceil(totalHostLinks / planes);
@@ -2771,9 +3030,16 @@ function calculate() {
 
   const leafPortSpeed  = leafPlatform?.portSpeed || 800;
   const spinePortSpeed = spinePlatform?.portSpeed || 800;
+  // Breakout uses 800G as the reference speed because all platform radix values
+  // are pre-normalized to 800G-equivalent port counts. DO NOT change this to use
+  // leafPortSpeed — that would double-count the 1.6T→800G conversion already
+  // embedded in the 7060XE7's radix (128 = 64 physical × 2).
   const breakout       = 800 / hostSpeedPerPlane;
   const uplinkBreakout = 800 / spineSpeed;
 
+  // The oversubscription ratio controls the downlink/uplink port split on each leaf.
+  // At oversub=1.0 (default, non-blocking): half the ports face hosts, half face spines.
+  // At oversub=1.3: ~57% down / ~43% up — viable for inference or bandwidth-tolerant workloads.
   const physDownlinks  = Math.floor(leafRadix * oversub / (1 + oversub));
   const effDownlinks   = physDownlinks * breakout;
   const uplinks        = leafRadix - physDownlinks;
@@ -3009,6 +3275,15 @@ function calculate() {
     let leafPerPlane  = Math.ceil(linksPerPlane / effDownlinks);
     if (railCount > 1) leafPerPlane = Math.ceil(leafPerPlane / railCount) * railCount;
 
+    // RACK-SCALE ALIGNMENT (NVL72 systems only)
+    // Ensures no single rack is split across different leaf switch sets.
+    // The per-plane link count divides by planes when NIC breakout is inactive
+    // because each leaf serves only one plane's traffic.
+    //
+    // Example (VR NVL72, 96 racks, 4 rails, 2 planes):
+    //   nicsPerRack=144, per rail per plane = 144/4/2 = 18 links
+    //   Each leaf (64 downlinks) serves floor(64/18) = 3 racks
+    //   32 leaves/rail × 4 rails = 128 leaves/plane (fits 7060XE7 spine exactly)
     let racksPerLeafPerRail = null;
     let rackPortsUsed = 0;
     let rackPortsTotal = 0;
@@ -3032,6 +3307,13 @@ function calculate() {
 
     totalLeaf           = leafPerPlane * planes;
     const uplinksPerSpine = parseInt(document.getElementById('uplinks-per-spine').value) || 1;
+    // SPINE SIZING
+    // spineLeafPP = number of leaves the spine layer must accommodate.
+    //   Uses target GPU count (scale-out) if larger than current.
+    // origSpinePP = minimum spines needed = ceil(spineLeafPP × effUplinks / effSpineRadix)
+    // nextDivisorGte ensures effUplinks divides evenly among spines — each leaf
+    // connects to every spine with bundleSize = effUplinks / spinePerPlane links.
+    // bundleSize < 1 means the topology is infeasible (not enough leaf uplinks).
     const targetGPUs    = getTargetGPUs();
     let spineLeafPP   = (targetGPUs > gpus)
       ? Math.ceil((nicBreakout ? targetGPUs * linksPerGpu : Math.ceil(targetGPUs * linksPerGpu / planes)) / effDownlinks)
@@ -3821,6 +4103,7 @@ function calculate() {
     const spOpConv = ((OPTIC_POWER[leafPortSpeed]?.conventional || 0) + (OPTIC_POWER[spinePortSpeed]?.conventional || 0)) / 2;
     const spOpLpo  = ((OPTIC_POWER[leafPortSpeed]?.lpo || 0) + (OPTIC_POWER[spinePortSpeed]?.lpo || 0)) / 2;
     const spConvW = oc.spine * spOpConv;
+  // railCount is read from DOM since the const is scoped to the 2-tier block.
     const spLpoW  = oc.spine * spOpLpo;
     const hSwConvW = oc.hostSwitch * (OPTIC_POWER[hostSpeedPerPlane]?.conventional || 0);
     const hSwLpoW  = oc.hostSwitch * (OPTIC_POWER[hostSpeedPerPlane]?.lpo || 0);
@@ -4076,6 +4359,9 @@ function calculate() {
   document.getElementById('print-config').innerHTML = pcParts.join(' &nbsp;&middot;&nbsp; ');
   document.getElementById('print-footer').textContent = 'Generated ' + new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) + ' — Arista Networks AI Network Calculator v' + APP_VERSION;
 
+  // Store results for slide export and topology visualization.
+  // hostSpeed stores the per-plane value (may be reduced by NIC breakout).
+  // railCount is read from DOM since the const is scoped to the 2-tier block.
   window.lastCalcResults = {
     gpu: selGpu, gpus, hosts, gpusPerNode, linksPerGpu,
     tierNum, planes, spineSpeed,
