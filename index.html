@@ -748,6 +748,23 @@
   .changelog-body ul { margin: 0 0 8px; padding-left: 18px; }
   .changelog-body li { margin-bottom: 3px; }
 
+  .advanced-warn-overlay { display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); align-items: center; justify-content: center; }
+  .advanced-warn-overlay.open { display: flex; }
+  .advanced-warn-panel { background: var(--panel-bg); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); width: 480px; max-width: 92vw; display: flex; flex-direction: column; overflow: hidden; }
+  .advanced-warn-header { display: flex; align-items: center; gap: 10px; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .advanced-warn-header h2 { font-size: 16px; font-weight: 700; margin: 0; }
+  .advanced-warn-body { padding: 20px; font-size: 13px; line-height: 1.7; color: var(--text2); }
+  .advanced-warn-body p { margin: 0 0 14px; }
+  .advanced-warn-check { display: flex; align-items: flex-start; gap: 8px; margin-top: 4px; cursor: pointer; font-size: 13px; color: var(--text); }
+  .advanced-warn-check input { margin-top: 3px; accent-color: var(--primary); }
+  .advanced-warn-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 20px; border-top: 1px solid var(--border); }
+  .advanced-warn-footer button { padding: 7px 18px; border-radius: var(--radius); font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer; transition: all 0.15s ease; }
+  .advanced-warn-cancel { background: var(--bg2); border: 1px solid var(--border); color: var(--text2); }
+  .advanced-warn-cancel:hover { border-color: var(--text3); }
+  .advanced-warn-proceed { background: var(--primary); border: 1px solid var(--primary); color: #fff; opacity: 0.4; pointer-events: none; }
+  .advanced-warn-proceed.enabled { opacity: 1; pointer-events: auto; }
+  .advanced-warn-proceed.enabled:hover { filter: brightness(1.1); }
+
   .flow-select-ring {
     animation: flow-ring-pulse 1.5s ease-in-out infinite;
   }
@@ -793,7 +810,7 @@
 <div class="topbar">
   <div class="topbar-left">
     <div class="topbar-logo"><svg viewBox="0 0 1115 175" xmlns="http://www.w3.org/2000/svg"><g fill="currentColor"><path d="M391.027,103.426c36.994,0,55.491-25.688,55.491-51.378c0-25.688-18.498-50.353-57.546-50.353c-28.773-1.029-134.617-1.029-134.617-1.029v173.668h32.879V28.413c25.691,0,90.43,0,103.79,0c18.496,0,27.745,6.163,27.745,23.635c0,14.385-9.247,22.606-26.718,22.606h-86.315l102.761,98.648h40.078l-73.991-71.932C381.78,103.426,390,103.426,391.027,103.426z"/><rect x="480.429" y="0.669" width="31.856" height="173.665"/><polygon points="916.137,27.387 916.137,0.669 848.313,0.669 816.457,0.669 759.938,0.669 741.441,27.387 816.457,27.387 816.457,174.334 848.313,174.334 848.313,27.387"/><path d="M678.756,72.6c-16.441,0-57.543,0-81.182,0c-16.438,0-25.689-7.192-25.689-21.58c0-16.44,11.305-23.633,25.689-23.633c22.609,0,110.98,0,110.98,0l14.387-26.718c0,0-107.898,0-126.395,0c-28.775,0-52.407,21.577-52.407,51.382c0,26.715,22.608,48.294,53.434,48.294c17.473,0,69.877,0,81.182,0c18.5,0,28.775,8.224,28.775,23.637c0,13.357-11.305,22.608-28.775,22.608H566.748l-16.44,27.744c0,0,98.649,0,132.558,0c33.912,0,52.406-24.658,52.406-52.404C735.275,96.233,713.695,72.6,678.756,72.6z"/><path d="M104.325,11.972C97.133,23.272,1.564,174.334,1.564,174.334h33.91l31.858-51.381h67.822l17.47-27.746H84.8l36.993-59.602l86.321,137.697h33.911c0,0-94.542-149.001-102.765-162.359C130.013-2.413,113.574-1.387,104.325,11.972z"/><path d="M1079.523,174.334h33.912c0,0-94.539-149.003-102.764-162.362c-9.244-15.415-25.689-14.385-34.938-1.028c-7.195,11.301-102.762,162.359-102.762,162.359h33.91l31.855-51.378h68.852l17.467-27.746h-67.82l36.996-59.603L1079.523,174.334z"/></g></svg></div>
-    <h1>AI Network Calculator <span style="font-weight:400;font-size:14px;opacity:0.6">v1.9.0</span></h1>
+    <h1>AI Network Calculator <span style="font-weight:400;font-size:14px;opacity:0.6">v1.9.1</span></h1>
   </div>
   <div class="topbar-right">
     <a href="#" onclick="event.preventDefault();document.getElementById('changelog-modal').classList.add('open')" title="What's new" style="color:var(--text3);margin-right:12px;display:inline-flex;align-items:center;gap:5px;font-size:13px;text-decoration:none;opacity:0.7;transition:opacity .2s" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
@@ -822,8 +839,33 @@
         </span>
       </div>
 
+      <!-- GPU / NIC -->
+      <div class="input-section" id="section-gpu">
+        <div class="input-section-header" onclick="toggleSection('section-gpu')">
+          <div class="section-icon"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="8" y="8" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="8" y1="2" x2="8" y2="4" stroke="currentColor" stroke-width="1.5"/><line x1="12" y1="2" x2="12" y2="4" stroke="currentColor" stroke-width="1.5"/><line x1="16" y1="2" x2="16" y2="4" stroke="currentColor" stroke-width="1.5"/><line x1="8" y1="20" x2="8" y2="22" stroke="currentColor" stroke-width="1.5"/><line x1="12" y1="20" x2="12" y2="22" stroke="currentColor" stroke-width="1.5"/><line x1="16" y1="20" x2="16" y2="22" stroke="currentColor" stroke-width="1.5"/></svg></div>
+          <span class="section-title">GPU / NIC</span>
+          <span class="section-summary" id="summary-gpu"></span>
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="input-section-body">
+          <div class="field">
+            <label>GPU / Accelerator</label>
+            <select id="gpu-model" onchange="onGpuChange()"></select>
+          </div>
+          <div class="field">
+            <label>NIC</label>
+            <select id="nic-model" onchange="onNicChange()"></select>
+          </div>
+          <div id="gpu-auto-summary" class="auto-config-box" style="display:none">
+            <div class="auto-config-title">Auto-configured settings</div>
+            <div id="gpu-auto-details"></div>
+          </div>
+          <button type="button" class="section-next-btn" onclick="nextSection('section-gpu')">Next</button>
+        </div>
+      </div>
+
       <!-- Cluster Size -->
-      <div class="input-section" id="section-cluster">
+      <div class="input-section collapsed" id="section-cluster">
         <div class="input-section-header" onclick="toggleSection('section-cluster')">
           <div class="section-icon"><svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/></svg></div>
           <span class="section-title">Cluster Size</span>
@@ -858,32 +900,15 @@
             <input type="number" id="target-gpus" min="1" placeholder="e.g. 16384" oninput="clearResults()">
             <div class="hint">Spine layer will be pre-provisioned for this scale</div>
           </div>
+          <div class="field" style="margin-top:8px">
+            <label>Leaf fill order</label>
+            <span class="optic-toggle" style="margin-left:0">
+              <button type="button" class="optic-toggle-btn active" id="fill-avg" onclick="setFillMode('average')">Average</button>
+              <button type="button" class="optic-toggle-btn" id="fill-ltr" onclick="setFillMode('ltr')">Left to Right</button>
+            </span>
+            <div class="hint" id="fill-hint">Distribute hosts evenly across all leaves. May result in more switches and unused ports due to rail alignment.</div>
+          </div>
           <button type="button" class="section-next-btn" onclick="nextSection('section-cluster')">Next</button>
-        </div>
-      </div>
-
-      <!-- GPU / NIC -->
-      <div class="input-section collapsed" id="section-gpu">
-        <div class="input-section-header" onclick="toggleSection('section-gpu')">
-          <div class="section-icon"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="8" y="8" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="8" y1="2" x2="8" y2="4" stroke="currentColor" stroke-width="1.5"/><line x1="12" y1="2" x2="12" y2="4" stroke="currentColor" stroke-width="1.5"/><line x1="16" y1="2" x2="16" y2="4" stroke="currentColor" stroke-width="1.5"/><line x1="8" y1="20" x2="8" y2="22" stroke="currentColor" stroke-width="1.5"/><line x1="12" y1="20" x2="12" y2="22" stroke="currentColor" stroke-width="1.5"/><line x1="16" y1="20" x2="16" y2="22" stroke="currentColor" stroke-width="1.5"/></svg></div>
-          <span class="section-title">GPU / NIC</span>
-          <span class="section-summary" id="summary-gpu"></span>
-          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-        </div>
-        <div class="input-section-body">
-          <div class="field">
-            <label>GPU / Accelerator</label>
-            <select id="gpu-model" onchange="onGpuChange()"></select>
-          </div>
-          <div class="field">
-            <label>NIC</label>
-            <select id="nic-model" onchange="onNicChange()"></select>
-          </div>
-          <div id="gpu-auto-summary" class="auto-config-box" style="display:none">
-            <div class="auto-config-title">Auto-configured settings</div>
-            <div id="gpu-auto-details"></div>
-          </div>
-          <button type="button" class="section-next-btn" onclick="nextSection('section-gpu')">Next</button>
         </div>
       </div>
 
@@ -993,6 +1018,14 @@
             <select id="uplinks-per-spine" onchange="clearResults()">
               <option value="1" selected>1</option>
             </select>
+          </div>
+          <div class="field">
+            <label>Spine sizing</label>
+            <span class="optic-toggle" style="margin-left:0">
+              <button type="button" class="optic-toggle-btn active" id="spine-sz-full" onclick="setSpineSizing('full')">Full Mesh</button>
+              <button type="button" class="optic-toggle-btn" id="spine-sz-min" onclick="setSpineSizing('min')">Minimal</button>
+            </span>
+            <div class="hint" id="spine-sz-hint">One uplink per spine — maximum path diversity</div>
           </div>
           </div>
           <div class="field">
@@ -1239,6 +1272,16 @@
       <button style="background:none;border:none;cursor:pointer;color:var(--text3);padding:4px" onclick="document.getElementById('changelog-modal').classList.remove('open')"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="changelog-body">
+      <h3>v1.9.1 — September 2025</h3>
+      <ul>
+        <li><strong>Advanced mode warning</strong> — modal dialog with acknowledgement checkbox before entering Advanced mode, warning that overriding values can produce invalid designs</li>
+        <li><strong>GPU/NIC first</strong> — GPU/NIC selection moved to the first sidebar section above Cluster Size for a more natural configuration flow</li>
+        <li><strong>Leaf fill order</strong> — new toggle in Cluster Size: Average (even distribution with rail alignment) vs Left to Right (pack each leaf to capacity sequentially, skip rail alignment)</li>
+        <li><strong>Spine sizing toggle</strong> — new Full Mesh vs Minimal toggle in advanced Switch Configuration; Minimal uses fewest spines with bundled uplinks</li>
+        <li><strong>Simple mode spine fix</strong> — simple mode now auto-selects minimum viable spine count instead of defaulting to full-mesh topology</li>
+        <li><strong>Spine utilization callout</strong> — results show spine port utilization percentage and display an info note when the spine layer is overprovisioned with exact savings</li>
+        <li><strong>NVL72 switch defaults</strong> — GB300 NVL72 and GB200 NVL72 now default to 7060XE7 (1.6T), matching Vera Rubin NVL72</li>
+      </ul>
       <h3>v1.9.0 — August 2025</h3>
       <ul>
         <li><strong>Slide export redesign</strong> — Arista-branded slide output with blue title bar, rounded boxes, thicker connection lines, Arista logo in footer, and Helvetica Neue font throughout for a professional deck-ready look</li>
@@ -1372,6 +1415,27 @@
   </div>
 </div>
 
+<!-- Advanced Mode Warning Modal -->
+<div class="advanced-warn-overlay" id="advanced-warn-modal" onclick="if(event.target===this)cancelAdvancedWarn()">
+  <div class="advanced-warn-panel">
+    <div class="advanced-warn-header">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#e67e22" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <h2>Advanced Mode</h2>
+    </div>
+    <div class="advanced-warn-body">
+      <p>Advanced mode gives you full control over all fabric parameters including line card ports, planes, rails, oversubscription ratios, and optics selection.</p>
+      <p><strong>Overriding these values can produce invalid or unbuildable designs.</strong> Only use advanced mode if you are familiar with Arista AI fabric architectures and understand the impact of each setting.</p>
+      <label class="advanced-warn-check">
+        <input type="checkbox" id="advanced-warn-agree" onchange="document.getElementById('advanced-warn-proceed-btn').classList.toggle('enabled', this.checked)">
+        I understand and want to proceed
+      </label>
+    </div>
+    <div class="advanced-warn-footer">
+      <button class="advanced-warn-cancel" onclick="cancelAdvancedWarn()">Cancel</button>
+      <button class="advanced-warn-proceed" id="advanced-warn-proceed-btn" onclick="confirmAdvancedWarn()">Enter Advanced Mode</button>
+    </div>
+  </div>
+</div>
 
 <script>
 /*
@@ -1439,7 +1503,7 @@ function toggleSection(id) {
   updateSectionSummaries();
 }
 
-const SECTION_ORDER = ['section-cluster', 'section-gpu', 'section-tier', 'section-switch', 'section-optics', 'section-fe', 'section-storage'];
+const SECTION_ORDER = ['section-gpu', 'section-cluster', 'section-tier', 'section-switch', 'section-optics', 'section-fe', 'section-storage'];
 
 function nextSection(currentId) {
   const idx = SECTION_ORDER.indexOf(currentId);
@@ -1465,6 +1529,7 @@ function updateSectionSummaries() {
   if (gpn && gpn !== '8') parts.push(gpn + '/node');
   const tgt = getTargetGPUs();
   if (tgt > 0) parts.push('→ ' + tgt);
+  if (fillMode === 'ltr') parts.push('L→R fill');
   document.getElementById('summary-cluster').textContent = parts.join(' · ') || '';
 
   const gpuSel = document.getElementById('gpu-model');
@@ -1495,6 +1560,7 @@ function updateSectionSummaries() {
   if (planes && planes !== '1') swParts.push(planes + ' planes');
   const rails = document.getElementById('rail-count')?.value;
   if (rails && rails !== '1') swParts.push(rails + ' rails');
+  if (spineSizing === 'min') swParts.push('Min spines');
   document.getElementById('summary-switch').textContent = swParts.join(' / ') || '';
 
   const hostSpeed = document.getElementById('host-speed').value;
@@ -1640,8 +1706,8 @@ const GPU_MODELS = [
   { id: 'rubin72',   name: 'NVIDIA Vera Rubin NVL72', gpusPerNode: 72, defaultNic: 'cx9',   defaultSpeed: 800, defaultLinks: 2, vendor: 'nvidia', defaultPlanes: 2, defaultRails: 4, defaultTier: 2, defaultSpineSpeed: 800, rackScale: true, nicsPerRack: 144, defaultLeaf: 128, defaultSpine: 128 },
   { id: 'dgx-rubin', name: 'NVIDIA DGX Rubin NVL8',  gpusPerNode: 8,  defaultNic: 'cx9',   defaultSpeed: 800, vendor: 'nvidia', defaultPlanes: 2, defaultRails: 8, defaultTier: 2, defaultSpineSpeed: 800 },
   { id: 'hgx-rubin', name: 'NVIDIA HGX Rubin NVL8',  gpusPerNode: 8,  defaultNic: 'cx9',   defaultSpeed: 800, vendor: 'nvidia', defaultPlanes: 2, defaultRails: 8, defaultTier: 2, defaultSpineSpeed: 800 },
-  { id: 'gb300',     name: 'NVIDIA GB300 NVL72',  gpusPerNode: 72, defaultNic: 'cx8',        defaultSpeed: 800, vendor: 'nvidia', defaultPlanes: 2, defaultRails: 4, defaultTier: 2, defaultSpineSpeed: 800, rackScale: true, nicsPerRack: 72 },
-  { id: 'gb200',     name: 'NVIDIA GB200 NVL72',  gpusPerNode: 72, defaultNic: 'cx7',        defaultSpeed: 400, vendor: 'nvidia', defaultPlanes: 2, defaultRails: 4, defaultTier: 2, defaultSpineSpeed: 800, rackScale: true, nicsPerRack: 72 },
+  { id: 'gb300',     name: 'NVIDIA GB300 NVL72',  gpusPerNode: 72, defaultNic: 'cx8',        defaultSpeed: 800, vendor: 'nvidia', defaultPlanes: 2, defaultRails: 4, defaultTier: 2, defaultSpineSpeed: 800, rackScale: true, nicsPerRack: 72, defaultLeaf: 128, defaultSpine: 128 },
+  { id: 'gb200',     name: 'NVIDIA GB200 NVL72',  gpusPerNode: 72, defaultNic: 'cx7',        defaultSpeed: 400, vendor: 'nvidia', defaultPlanes: 2, defaultRails: 4, defaultTier: 2, defaultSpineSpeed: 800, rackScale: true, nicsPerRack: 72, defaultLeaf: 128, defaultSpine: 128 },
   { id: 'gb200-36',  name: 'NVIDIA GB200 NVL36',  gpusPerNode: 36, defaultNic: 'cx7',        defaultSpeed: 400, vendor: 'nvidia', defaultPlanes: 2, defaultRails: 4, defaultTier: 2, defaultSpineSpeed: 800 },
   { id: 'b300',      name: 'NVIDIA B300',         gpusPerNode: 8,  defaultNic: 'cx8',        defaultSpeed: 800, defaultLinks: 1, vendor: 'nvidia', defaultPlanes: 2, defaultRails: 8, defaultTier: 2, defaultSpineSpeed: 800, defaultLeaf: 64, defaultSpine: 64 },
   { id: 'b200',      name: 'NVIDIA B200',         gpusPerNode: 8,  defaultNic: 'cx7',        defaultSpeed: 400, vendor: 'nvidia', defaultPlanes: 2, defaultRails: 8, defaultTier: 2, defaultSpineSpeed: 800 },
@@ -1797,8 +1863,18 @@ function onNicChange() {
 }
 
 let currentMode = 'simple';
+let advancedWarnAccepted = false;
 
 function setMode(mode) {
+  if (mode === 'advanced' && !advancedWarnAccepted) {
+    const modal = document.getElementById('advanced-warn-modal');
+    const cb = document.getElementById('advanced-warn-agree');
+    const btn = document.getElementById('advanced-warn-proceed-btn');
+    cb.checked = false;
+    btn.classList.remove('enabled');
+    modal.classList.add('open');
+    return;
+  }
   currentMode = mode;
   document.getElementById('mode-simple').className = 'optic-toggle-btn' + (mode === 'simple' ? ' active' : '');
   document.getElementById('mode-advanced').className = 'optic-toggle-btn' + (mode === 'advanced' ? ' active' : '');
@@ -1813,6 +1889,16 @@ function setMode(mode) {
   updateAutoSummary(gpu && gpu.id !== 'custom' ? gpu : null);
   updateSectionSummaries();
   clearResults();
+}
+
+function confirmAdvancedWarn() {
+  advancedWarnAccepted = true;
+  document.getElementById('advanced-warn-modal').classList.remove('open');
+  setMode('advanced');
+}
+
+function cancelAdvancedWarn() {
+  document.getElementById('advanced-warn-modal').classList.remove('open');
 }
 
 function updateAutoSummary(gpu) {
@@ -1857,6 +1943,28 @@ function setScaleOut(enabled) {
   document.getElementById('scale-on').className = 'optic-toggle-btn' + (enabled ? ' active' : '');
   document.getElementById('target-gpus-row').style.display = enabled ? '' : 'none';
   if (!enabled) document.getElementById('target-gpus').value = '';
+  clearResults();
+}
+
+let fillMode = 'average';
+function setFillMode(mode) {
+  fillMode = mode;
+  document.getElementById('fill-avg').className = 'optic-toggle-btn' + (mode === 'average' ? ' active' : '');
+  document.getElementById('fill-ltr').className = 'optic-toggle-btn' + (mode === 'ltr' ? ' active' : '');
+  document.getElementById('fill-hint').textContent = mode === 'average'
+    ? 'Distribute hosts evenly across all leaves. May result in more switches and unused ports due to rail alignment.'
+    : 'Pack each leaf to capacity before filling the next';
+  clearResults();
+}
+
+let spineSizing = 'full';
+function setSpineSizing(mode) {
+  spineSizing = mode;
+  document.getElementById('spine-sz-full').className = 'optic-toggle-btn' + (mode === 'full' ? ' active' : '');
+  document.getElementById('spine-sz-min').className = 'optic-toggle-btn' + (mode === 'min' ? ' active' : '');
+  document.getElementById('spine-sz-hint').textContent = mode === 'full'
+    ? 'One uplink per spine — maximum path diversity'
+    : 'Fewest spines possible — bundle multiple uplinks per spine';
   clearResults();
 }
 
@@ -3267,7 +3375,7 @@ function calculate() {
     const railCount = parseInt(document.getElementById('rail-count').value) || 1;
     const selGpuModel = GPU_MODELS.find(g => g.id === document.getElementById('gpu-model').value);
     let leafPerPlane  = Math.ceil(linksPerPlane / effDownlinks);
-    if (railCount > 1) leafPerPlane = Math.ceil(leafPerPlane / railCount) * railCount;
+    if (railCount > 1 && fillMode !== 'ltr') leafPerPlane = Math.ceil(leafPerPlane / railCount) * railCount;
 
     // RACK-SCALE ALIGNMENT (NVL72 systems only)
     // Ensures no single rack is split across different leaf switch sets.
@@ -3314,7 +3422,12 @@ function calculate() {
       : leafPerPlane;
     if (railCount > 1) spineLeafPP = Math.ceil(spineLeafPP / railCount) * railCount;
     const origSpinePP   = Math.ceil((spineLeafPP * effUplinks) / effSpineRadix);
-    let spinePerPlane   = effUplinks > 0 ? Math.round(effUplinks / uplinksPerSpine) : origSpinePP;
+    let spinePerPlane;
+    if (currentMode === 'simple' || spineSizing === 'min') {
+      spinePerPlane = origSpinePP;
+    } else {
+      spinePerPlane = effUplinks > 0 ? Math.round(effUplinks / uplinksPerSpine) : origSpinePP;
+    }
     if (spinePerPlane < origSpinePP) spinePerPlane = origSpinePP;
     if (effUplinks > 0 && effUplinks % spinePerPlane !== 0) {
       spinePerPlane = nextDivisorGte(spinePerPlane, effUplinks);
@@ -3344,20 +3457,35 @@ function calculate() {
       ? 'Each leaf connects to each spine with ' + Math.round(bundleSize) + ' uplinks, reducing spine count to ' + spinePerPlane + ' per plane.'
       : 'Each leaf uplinks to all spines in its plane.';
 
+    const spinePortsUsed = Math.floor(leafPerPlane * bundleSize);
+    const spinePortPct = Math.round(spinePortsUsed / effSpineRadix * 100);
     const spineRows = [
       ['Spine platform', spinePlatform.desc],
       ['Spine per plane', spinePerPlane], ['Planes', planes],
-      ['Total spine switches', totalSpine], ['Downlink ports used', Math.floor(leafPerPlane * bundleSize)],
+      ['Total spine switches', totalSpine], ['Downlink ports used', spinePortsUsed + ' / ' + Math.round(effSpineRadix) + ' (' + spinePortPct + '%)'],
     ];
     if (targetGPUs > gpus) {
       spineRows.push(['Pre-provisioned for', fmtN(targetGPUs) + ' GPUs (' + fmtN(spineLeafPP) + ' leaves/plane)']);
       spineRows.push(['Day-1 spine utilization', Math.round((leafPerPlane / spineLeafPP) * 100) + '%']);
     }
     switchHtml  = mkSection(iconServer(), 'Spine layer', spineRows);
+    if (spinePerPlane > origSpinePP) {
+      const minTotal = origSpinePP * planes;
+      const minBundle = Math.round(effUplinks / origSpinePP);
+      switchHtml += '<div class="note-box">Spine layer is overprovisioned — using ' + spinePerPlane + ' spines/plane but only ' + origSpinePP + ' are needed. Switch to <strong>Minimal</strong> spine sizing to reduce to ' + origSpinePP + ' spines/plane (' + minTotal + ' total), bundling ' + minBundle + ' uplinks per spine. This saves ' + ((spinePerPlane - origSpinePP) * planes) + ' spine switches.</div>';
+    }
     const leafRows = [
       ['Leaf platform', leafPlatform.desc],
       ['Leaf per plane', leafPerPlane], ['Total leaf switches', totalLeaf],
-      ['Host links per leaf', Math.ceil(linksPerPlane / leafPerPlane) + (breakout > 1 ? ` (via ${breakout}:1 breakout)` : '')],
+      ['Host links per leaf', (() => {
+        const avg = Math.ceil(linksPerPlane / leafPerPlane);
+        const bk = breakout > 1 ? ` (via ${breakout}:1 breakout)` : '';
+        if (fillMode === 'ltr' && leafPerPlane > 1) {
+          const remainder = linksPerPlane % effDownlinks || effDownlinks;
+          return effDownlinks + bk + (remainder < effDownlinks ? `, last leaf: ${remainder}` : '');
+        }
+        return avg + bk;
+      })()],
       ['Phys downlinks used', physDownlinks],
       ['Uplink ports', uplinks + (uplinkBreakout !== 1 ? ' (' + Math.round(effUplinks) + ' effective @ ' + speedLabel(spineSpeed) + ')' : '')],
       ['Links per spine (bundle)', bundleStr],
@@ -3415,7 +3543,7 @@ function calculate() {
         { id: 'spine', label: spinePlatform.name, perPlane: spinePerPlane, radix: spineRadix },
         { id: 'leaf', label: leafPlatform.name, perPlane: leafPerPlane, radix: leafRadix }
       ],
-      hosts: { perLeaf: Math.ceil(linksPerPlane / leafPerPlane), linksPerNode, linksPerNodePerPlane, gpusPerNode, linksPerGpu, nicBreakout, hostSpeedPerPlane },
+      hosts: { perLeaf: Math.ceil(linksPerPlane / leafPerPlane), linksPerNode, linksPerNodePerPlane, gpusPerNode, linksPerGpu, nicBreakout, hostSpeedPerPlane, fillMode, effDownlinks, totalLinks: linksPerPlane },
       links: [
         { from: 'spine', to: 'leaf', bundle: bundleSize, speed: spineSpeed },
         { from: 'leaf', to: 'host', bundle: linksPerNodePerPlane, speed: hostSpeedPerPlane }
@@ -3434,7 +3562,7 @@ function calculate() {
 
     const railCount3 = parseInt(document.getElementById('rail-count').value) || 1;
     let leaf2PerPlane = Math.ceil(linksPerPlane / effDownlinks);
-    if (railCount3 > 1) leaf2PerPlane = Math.ceil(leaf2PerPlane / railCount3) * railCount3;
+    if (railCount3 > 1 && fillMode !== 'ltr') leaf2PerPlane = Math.ceil(leaf2PerPlane / railCount3) * railCount3;
     const totalLeaf2    = leaf2PerPlane * planes;
 
     // Pod model: each pod has edgeLeavesPerPod edge leaves and aggPerPod agg switches
@@ -3455,7 +3583,12 @@ function calculate() {
     const uplinksPerSpine3 = parseInt(document.getElementById('uplinks-per-spine').value) || 1;
     const aggUplinksTotal = ssLeaf1PP * effUplinks;
     const origSpinePP3  = Math.ceil(aggUplinksTotal / effSpineRadix);
-    let spinePerPlane   = effUplinks > 0 ? Math.round(effUplinks / uplinksPerSpine3) : origSpinePP3;
+    let spinePerPlane;
+    if (currentMode === 'simple' || spineSizing === 'min') {
+      spinePerPlane = origSpinePP3;
+    } else {
+      spinePerPlane = effUplinks > 0 ? Math.round(effUplinks / uplinksPerSpine3) : origSpinePP3;
+    }
     if (spinePerPlane < origSpinePP3) spinePerPlane = origSpinePP3;
     if (effUplinks > 0 && effUplinks % spinePerPlane !== 0) {
       spinePerPlane = nextDivisorGte(spinePerPlane, effUplinks);
@@ -3491,11 +3624,13 @@ function calculate() {
 
     const isFullMesh3 = effUplinks >= spinePerPlane;
     const aggsPerSpine = Math.ceil(leaf1PerPlane * effUplinks / spinePerPlane);
+    const ssPortsUsed = aggsPerSpine;
+    const ssPortPct = Math.round(ssPortsUsed / effSpineRadix * 100);
     const spineConnRows = [
       ['Super-spine platform', spinePlatform.desc],
       ['Super-spine per plane', spinePerPlane], ['Total super-spines', totalSpine],
       ['Uplinks per spine', Math.round(effUplinks) + (uplinkBreakout !== 1 ? ' (@ ' + speedLabel(spineSpeed) + ')' : '')],
-      ['Spines per super-spine', aggsPerSpine],
+      ['Spines per super-spine', ssPortsUsed + ' / ' + Math.round(effSpineRadix) + ' (' + ssPortPct + '%)'],
     ];
     if (!isFullMesh3) {
       spineConnRows.push(['Connectivity', effUplinks + ' of ' + spinePerPlane + ' super-spines per spine (partial mesh)']);
@@ -3507,6 +3642,11 @@ function calculate() {
       spineConnRows.push(['Day-1 utilization', Math.round((leaf1PerPlane / ssLeaf1PP) * 100) + '%']);
     }
     switchHtml  = mkSection(iconServer(), 'Super-spine layer', spineConnRows);
+    if (spinePerPlane > origSpinePP3) {
+      const minTotal = origSpinePP3 * planes;
+      const minBundle = Math.round(effUplinks / origSpinePP3);
+      switchHtml += '<div class="note-box">Super-spine layer is overprovisioned — using ' + spinePerPlane + ' super-spines/plane but only ' + origSpinePP3 + ' are needed. Switch to <strong>Minimal</strong> spine sizing to reduce to ' + origSpinePP3 + ' super-spines/plane (' + minTotal + ' total), bundling ' + minBundle + ' uplinks per super-spine. This saves ' + ((spinePerPlane - origSpinePP3) * planes) + ' super-spine switches.</div>';
+    }
     switchHtml += mkSection(iconBranch(), 'Spine layer', [
       ['Spine platform', leafPlatform.desc],
       ['Spine per plane', leaf1PerPlane], ['Total spines', totalLeaf1],
@@ -3515,7 +3655,15 @@ function calculate() {
     switchHtml += mkSection(iconBranch(), 'Leaf layer', [
       ['Leaf platform', leafPlatform.desc],
       ['Leaf per plane', leaf2PerPlane], ['Total leaves', totalLeaf2],
-      ['Host links per leaf', Math.ceil(linksPerPlane / leaf2PerPlane) + (breakout > 1 ? ` (via ${breakout}:1)` : '')],
+      ['Host links per leaf', (() => {
+        const avg = Math.ceil(linksPerPlane / leaf2PerPlane);
+        const bk = breakout > 1 ? ` (via ${breakout}:1)` : '';
+        if (fillMode === 'ltr' && leaf2PerPlane > 1) {
+          const remainder = linksPerPlane % effDownlinks || effDownlinks;
+          return effDownlinks + bk + (remainder < effDownlinks ? `, last leaf: ${remainder}` : '');
+        }
+        return avg + bk;
+      })()],
       ['Links per spine (bundle)', e2aBundleStr],
     ], 'Three-tier Clos: ' + pods + (pods === 1 ? ' pod' : ' pods') + ' per plane, ' + edgeLeavesPerPod + ' leaves + ' + aggPerPod + ' spines per pod.');
     if (targetGPUs > gpus) switchHtml += '<div class="note-box" style="margin-bottom:12px">Super-spine layer pre-provisioned for ' + fmtN(targetGPUs) + ' GPUs. Day-1 deployment: ' + fmtN(gpus) + ' GPUs across ' + pods + ' pods with ' + fmtN(totalSpine) + ' super-spines. Scale out by adding pods — no super-spine changes required.</div>';
@@ -3573,7 +3721,7 @@ function calculate() {
         { id: 'aggLeaf', label: leafPlatform.name, perPlane: leaf1PerPlane, radix: leafRadix },
         { id: 'edgeLeaf', label: leafPlatform.name, perPlane: leaf2PerPlane, radix: leafRadix }
       ],
-      hosts: { perLeaf: Math.ceil(linksPerPlane / leaf2PerPlane), linksPerNode, linksPerNodePerPlane, gpusPerNode, linksPerGpu, nicBreakout, hostSpeedPerPlane },
+      hosts: { perLeaf: Math.ceil(linksPerPlane / leaf2PerPlane), linksPerNode, linksPerNodePerPlane, gpusPerNode, linksPerGpu, nicBreakout, hostSpeedPerPlane, fillMode, effDownlinks, totalLinks: linksPerPlane },
       links: [
         { from: 'spine', to: 'aggLeaf', bundle: a2sBundle, speed: spineSpeed },
         { from: 'aggLeaf', to: 'edgeLeaf', bundle: e2aBundle, speed: spineSpeed },
@@ -3653,7 +3801,7 @@ function calculate() {
         { id: 'spine', label: 'DCS-DS-7720R4', perPlane: desSpinePerPlane, radix: 128 },
         { id: 'leaf', label: 'DCS-DL-7700R4', perPlane: desLeafPerPlane, radix: 18 }
       ],
-      hosts: { perLeaf: portsUsedPerLeaf * breakout, linksPerNode, linksPerNodePerPlane, gpusPerNode, linksPerGpu, nicBreakout, hostSpeedPerPlane },
+      hosts: { perLeaf: portsUsedPerLeaf * breakout, linksPerNode, linksPerNodePerPlane, gpusPerNode, linksPerGpu, nicBreakout, hostSpeedPerPlane, fillMode, effDownlinks: portsUsedPerLeaf * breakout, totalLinks: linksPerPlane },
       links: [
         { from: 'spine', to: 'leaf', bundle: fabricLinksPerPair, speed: spineSpeed },
         { from: 'leaf', to: 'host', bundle: linksPerNodePerPlane, speed: hostSpeedPerPlane }
@@ -4429,6 +4577,7 @@ function closeTopoModal() {
 }
 
 function topoEscHandler(e) { if (e.key === 'Escape') closeTopoModal(); }
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && document.getElementById('advanced-warn-modal').classList.contains('open')) cancelAdvancedWarn(); });
 
 function buildMRCTopoData() {
   const c = lastTopoConfig;
@@ -4444,6 +4593,8 @@ function buildMRCTopoData() {
 
   const linksPerNodePerPlane = c.hosts.linksPerNodePerPlane || Math.ceil(c.hosts.linksPerNode / planeCount);
   const hostCountPerLeaf = Math.ceil(c.hosts.perLeaf / linksPerNodePerPlane);
+  const isLTR = (c.hosts.fillMode === 'ltr');
+  const ltrFullPerLeaf = isLTR && c.hosts.effDownlinks ? Math.floor(c.hosts.effDownlinks / linksPerNodePerPlane) : hostCountPerLeaf;
   const bottomTier = c.tiers[c.tiers.length - 1];
 
   function displayedCount(count, tierId) {
@@ -4598,7 +4749,9 @@ function buildMRCTopoData() {
 
   // Host row spans all planes
   const hostRank = c.tiers.length;
-  const totalHosts = bottomTier.perPlane * hostCountPerLeaf;
+  const totalHosts = isLTR && c.hosts.totalLinks
+    ? Math.ceil(c.hosts.totalLinks / linksPerNodePerPlane)
+    : bottomTier.perPlane * hostCountPerLeaf;
   const dHosts = displayedCount(totalHosts, 'host');
   const hostRowW = (dHosts - 1) * GAP_X;
   const hostSx = (totalPlanesWidth - hostRowW) / 2;
@@ -4674,9 +4827,18 @@ function buildMRCTopoData() {
     if (link.to === 'host') {
       for (let p = 0; p < planeCount; p++) {
         const leafKey = p + '-' + link.from;
-        for (const idx of (realIndices[leafKey] || [])) {
+        const allLeafIdxs = realIndices[leafKey] || [];
+        let hostsAssigned = 0;
+        for (const idx of allLeafIdxs) {
           const nid = 'p' + p + '-' + link.from + '-' + idx;
-          realConns[nid] = (realConns[nid] || 0) + hostCountPerLeaf;
+          if (isLTR) {
+            const remaining = totalHosts - hostsAssigned;
+            const thisLeaf = Math.min(ltrFullPerLeaf, remaining);
+            realConns[nid] = (realConns[nid] || 0) + Math.max(0, thisLeaf);
+            hostsAssigned += ltrFullPerLeaf;
+          } else {
+            realConns[nid] = (realConns[nid] || 0) + hostCountPerLeaf;
+          }
         }
       }
     } else if (c.pods && (link.from === 'aggLeaf' && link.to === 'edgeLeaf' || link.from === 'edgeLeaf' && link.to === 'aggLeaf')) {
@@ -4778,7 +4940,9 @@ function buildMRCTopoData() {
           }
         }
       } else {
-        const leafIdx = leafIdxs[hi % leafIdxs.length];
+        const leafIdx = isLTR
+          ? leafIdxs[Math.min(Math.floor(hi / ltrFullPerLeaf), leafIdxs.length - 1)]
+          : leafIdxs[hi % leafIdxs.length];
         edges.push({
           source: 'p' + p + '-' + bottomTier.id + '-' + leafIdx,
           target: hn.id,
@@ -4978,9 +5142,21 @@ function buildTopoData() {
   const hostRank = c.tiers.length;
   const bottomTier = c.tiers[c.tiers.length - 1];
   const hostCountPerLeaf = Math.ceil(c.hosts.perLeaf / c.hosts.linksPerNode);
+  const spIsLTR = (c.hosts.fillMode === 'ltr');
+  const spLtrFullPerLeaf = spIsLTR && c.hosts.effDownlinks ? Math.floor(c.hosts.effDownlinks / c.hosts.linksPerNode) : hostCountPerLeaf;
+  const spTotalHosts = spIsLTR && c.hosts.totalLinks
+    ? Math.ceil(c.hosts.totalLinks / c.hosts.linksPerNode)
+    : bottomTier.perPlane * hostCountPerLeaf;
+
+  function ltrHostLabel(leafIdx) {
+    if (!spIsLTR) return hostCountPerLeaf + ' hosts';
+    const filled = leafIdx * spLtrFullPerLeaf;
+    const remaining = Math.max(0, spTotalHosts - filled);
+    return Math.min(spLtrFullPerLeaf, remaining) + ' hosts';
+  }
 
   if (isRail) {
-    const totalNodes = bottomTier.perPlane * hostCountPerLeaf;
+    const totalNodes = spTotalHosts;
     if (totalNodes <= 5) {
       for (let i = 0; i < totalNodes; i++) {
         nodes.push({ id: 'host-' + i, label: 'Node ' + (i + 1), tier: 'host', rank: hostRank });
@@ -4995,14 +5171,14 @@ function buildTopoData() {
   } else if (tierCounts[bottomTier.id] <= MAX_SHOW) {
     const bottomCount = Math.min(tierCounts[bottomTier.id], MAX_SHOW);
     for (let i = 0; i < bottomCount; i++) {
-      nodes.push({ id: 'host-' + i, label: hostCountPerLeaf + ' hosts', tier: 'host', rank: hostRank });
+      nodes.push({ id: 'host-' + i, label: ltrHostLabel(i), tier: 'host', rank: hostRank });
     }
   } else {
     for (let i = 0; i < 3; i++) {
-      nodes.push({ id: 'host-' + i, label: hostCountPerLeaf + ' hosts', tier: 'host', rank: hostRank });
+      nodes.push({ id: 'host-' + i, label: ltrHostLabel(i), tier: 'host', rank: hostRank });
     }
     nodes.push({ id: 'host-ellipsis', label: '…', tier: 'ellipsis', rank: hostRank });
-    nodes.push({ id: 'host-last', label: hostCountPerLeaf + ' hosts', tier: 'host', rank: hostRank });
+    nodes.push({ id: 'host-last', label: ltrHostLabel(tierCounts[bottomTier.id] - 1), tier: 'host', rank: hostRank });
   }
 
   // Frontend network tiers (below hosts)
@@ -5067,9 +5243,17 @@ function buildTopoData() {
   const realConns = {};
   for (const link of c.links) {
     if (link.to === 'host') {
-      for (const idx of (tierRealIdx[link.from] || [])) {
+      const allIdx = tierRealIdx[link.from] || [];
+      let spAssigned = 0;
+      for (const idx of allIdx) {
         const nid = link.from + '-' + idx;
-        realConns[nid] = (realConns[nid] || 0) + hostCountPerLeaf;
+        if (spIsLTR) {
+          const remaining = spTotalHosts - spAssigned;
+          realConns[nid] = (realConns[nid] || 0) + Math.max(0, Math.min(spLtrFullPerLeaf, remaining));
+          spAssigned += spLtrFullPerLeaf;
+        } else {
+          realConns[nid] = (realConns[nid] || 0) + hostCountPerLeaf;
+        }
       }
     } else if (c.pods && (link.from === 'aggLeaf' && link.to === 'edgeLeaf' || link.from === 'edgeLeaf' && link.to === 'aggLeaf')) {
       for (const idx of (tierRealIdx['aggLeaf'] || [])) {
@@ -5163,7 +5347,9 @@ function buildTopoData() {
         const hostNodes = nodes.filter(n => n.tier === 'host' || (n.tier === 'ellipsis' && n.id.startsWith('host')));
         const realHosts = nodes.filter(n => n.tier === 'host');
         for (let hi = 0; hi < realHosts.length; hi++) {
-          const leafIdx = leafIdxs[hi % leafIdxs.length];
+          const leafIdx = spIsLTR
+            ? leafIdxs[Math.min(Math.floor(hi / spLtrFullPerLeaf), leafIdxs.length - 1)]
+            : leafIdxs[hi % leafIdxs.length];
           edges.push({
             source: link.from + '-' + leafIdx, target: realHosts[hi].id,
             label: link.bundle + '×' + speedLabel(link.speed),
